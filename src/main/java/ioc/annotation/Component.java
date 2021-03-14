@@ -6,11 +6,11 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * \@Value注解，设置某些字段的初始值
- * 注解在域上面的注解
+ * 表示注册一个组件
  */
-@Target(ElementType.FIELD)
+@Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface Value {
-    String value();
+public @interface Component {
+
+    String value() default "";
 }
