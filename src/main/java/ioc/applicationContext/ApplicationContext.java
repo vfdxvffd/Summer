@@ -1,4 +1,6 @@
-package ioc.applicationContext;/**
+package ioc.applicationContext;
+
+/**
  * @PackageName: ioc.applicationContext
  * @ClassName: ApplicationContext
  * @Description:
@@ -6,4 +8,8 @@ package ioc.applicationContext;/**
  * @date: 2021/3/14 上午10:59
  */
 public interface ApplicationContext {
+
+    Object getBean(String beanName);
+
+    Object getBean(Class<?> beanType);
 }

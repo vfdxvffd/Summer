@@ -10,7 +10,7 @@ package ioc.bean;
 public class BeanDefinition {
 
     private String beanName;
-    private Class beanClass;
+    private Class<?> beanClass;
 
     public BeanDefinition() {
     }
@@ -28,19 +28,11 @@ public class BeanDefinition {
         this.beanName = beanName;
     }
 
-    public Class getBeanClass() {
+    public Class<?> getBeanClass() {
         return beanClass;
     }
 
-    public void setBeanClass(Class beanClass) {
+    public void setBeanClass(Class<?> beanClass) {
         this.beanClass = beanClass;
-    }
-
-    @Override
-    public String toString() {
-        return "BeanDefinition{" +
-                "beanName='" + beanName + '\'' +
-                ", beanClass=" + beanClass +
-                '}';
     }
 }
