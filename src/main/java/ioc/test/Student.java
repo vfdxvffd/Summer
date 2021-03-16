@@ -1,9 +1,6 @@
 package ioc.test;
 
-import ioc.annotation.Autowired;
-import ioc.annotation.Component;
-import ioc.annotation.Qualifier;
-import ioc.annotation.Value;
+import ioc.annotation.*;
 
 /**
  * @PackageName: ioc.test
@@ -13,6 +10,8 @@ import ioc.annotation.Value;
  * @date: 2021/3/14 下午3:54
  */
 @Component
+@Scope("prototype")
+@Lazy
 public class Student {
 
     @Value("zhangsan")
@@ -30,7 +29,6 @@ public class Student {
     @Value("333.3")
     private float f;
     @Autowired
-    @Qualifier("myPen")
     private Pen pen;
 
     @Override

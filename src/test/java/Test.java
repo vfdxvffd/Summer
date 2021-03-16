@@ -1,5 +1,7 @@
 import ioc.applicationContext.impl.SummerAnnotationConfigApplicationContext;
-import ioc.exception.DataConversionException;
+import ioc.exception.*;
+import ioc.exception.IllegalStateException;
+import ioc.test.Pen;
 import ioc.test.Student;
 
 /**
@@ -15,10 +17,19 @@ public class Test {
     public void test() {
         try {
             SummerAnnotationConfigApplicationContext ioc = new SummerAnnotationConfigApplicationContext("ioc.test");
-            Object bean = ioc.getBean(Student.class);
-            System.out.println(bean);
-        } catch (DataConversionException e) {
+            Student student = ioc.getBean(Student.class);
+            Student bean = ioc.getBean(Student.class);
+            Pen pen = ioc.getBean(Pen.class);
+            System.out.println(student == bean);
+            System.out.println(student.getPen() == pen);
+            System.out.println(bean.getPen() == pen);
+        } catch (DataConversionException | IllegalStateException | DuplicateBeanNameException | DuplicateBeanClassException | NoSuchBeanException e) {
             e.printStackTrace();
         }
+    }
+
+    @org.junit.Test
+    public void test01() {
+
     }
 }
