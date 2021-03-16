@@ -1,5 +1,10 @@
 package ioc.applicationContext;
 
+import ioc.exception.DataConversionException;
+import ioc.exception.DuplicateBeanClassException;
+import ioc.exception.DuplicateBeanNameException;
+import ioc.exception.NoSuchBeanException;
+
 /**
  * @PackageName: ioc.applicationContext
  * @ClassName: ApplicationContext
@@ -9,7 +14,7 @@ package ioc.applicationContext;
  */
 public interface ApplicationContext {
 
-    Object getBean(String beanName);
+    Object getBean(String beanName) throws NoSuchBeanException, DataConversionException, DuplicateBeanClassException, DuplicateBeanNameException;
 
-    Object getBean(Class<?> beanType);
+    <T> T getBean(Class<T> beanType) throws NoSuchBeanException, DataConversionException, DuplicateBeanClassException, DuplicateBeanNameException;
 }
