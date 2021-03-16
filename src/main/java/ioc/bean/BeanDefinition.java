@@ -11,13 +11,17 @@ public class BeanDefinition {
 
     private String beanName;
     private Class<?> beanClass;
+    private Boolean lazy;
+    private Boolean singleton;
 
     public BeanDefinition() {
     }
 
-    public BeanDefinition(String beanName, Class beanClass) {
+    public BeanDefinition(String beanName, Class<?> beanClass, Boolean lazy, Boolean singleton) {
         this.beanName = beanName;
         this.beanClass = beanClass;
+        this.lazy = lazy;
+        this.singleton = singleton;
     }
 
     public String getBeanName() {
@@ -34,5 +38,21 @@ public class BeanDefinition {
 
     public void setBeanClass(Class<?> beanClass) {
         this.beanClass = beanClass;
+    }
+
+    public Boolean getLazy() {
+        return lazy;
+    }
+
+    public void setLazy(Boolean lazy) {
+        this.lazy = lazy;
+    }
+
+    public Boolean getSingleton() {
+        return singleton;
+    }
+
+    public void setSingleton(Boolean singleton) {
+        this.singleton = singleton;
     }
 }
