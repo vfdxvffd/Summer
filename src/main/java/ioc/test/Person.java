@@ -1,4 +1,8 @@
-package ioc.test;/**
+package ioc.test;
+
+import ioc.annotation.Component;
+
+/**
  * @PackageName: ioc.test
  * @ClassName: Person
  * @Description:
@@ -6,4 +10,6 @@ package ioc.test;/**
  * @date: 2021/3/18 上午11:46
  */
 public interface Person {
+    void say();
+    void say(String s, Integer i);
 }

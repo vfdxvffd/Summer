@@ -10,7 +10,7 @@ import ioc.annotation.*;
  * @date: 2021/3/14 下午3:54
  */
 @Component
-@Scope("prototype")
+//@Scope("prototype")
 @Lazy
 public class Student {
 
