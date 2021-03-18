@@ -1,8 +1,11 @@
-import ioc.applicationContext.impl.SummerAnnotationConfigApplicationContext;
-import ioc.exception.*;
-import ioc.exception.IllegalStateException;
-import ioc.test.Pen;
-import ioc.test.Student;
+import applicationContext.ApplicationContext;
+import applicationContext.impl.SummerAnnotationConfigApplicationContext;
+import ioc.exception.DataConversionException;
+import ioc.exception.DuplicateBeanClassException;
+import ioc.exception.DuplicateBeanNameException;
+import ioc.exception.NoSuchBeanException;
+import ioc.test.Man;
+import ioc.test.Person;
 
 /**
  * @PackageName: PACKAGE_NAME
@@ -14,22 +17,11 @@ import ioc.test.Student;
 public class Test {
 
     @org.junit.Test
-    public void test() {
-        try {
-            SummerAnnotationConfigApplicationContext ioc = new SummerAnnotationConfigApplicationContext("ioc.test");
-            Student student = ioc.getBean(Student.class);
-            Student bean = ioc.getBean(Student.class);
-            Pen pen = ioc.getBean(Pen.class);
-            System.out.println(student == bean);
-            System.out.println(student.getPen() == pen);
-            System.out.println(bean.getPen() == pen);
-        } catch (DataConversionException | IllegalStateException | DuplicateBeanNameException | DuplicateBeanClassException | NoSuchBeanException e) {
-            e.printStackTrace();
-        }
-    }
-
-    @org.junit.Test
-    public void test01() {
-
+    public void test() throws NoSuchMethodException, NoSuchBeanException, DuplicateBeanNameException, DuplicateBeanClassException, ClassNotFoundException, DataConversionException {
+        ApplicationContext ioc = new SummerAnnotationConfigApplicationContext("ioc.test");
+        Person person = ioc.getBean(Man.class);
+        person.say("hello world", 3);
+        System.out.println("=============");
+        person.say();
     }
 }
