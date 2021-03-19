@@ -1,7 +1,7 @@
-package ioc.bean;
+package com.vfd.summer.ioc.bean;
 
 /**
- * @PackageName: ioc.bean
+ * @PackageName: com.vfd.summer.ioc.bean
  * @ClassName: BeanDefinition
  * @Description:
  * @author: vfdxvffd

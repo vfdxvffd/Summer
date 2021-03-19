@@ -1,7 +1,7 @@
-package ioc.exception;
+package com.vfd.summer.ioc.exception;
 
 /**
- * @PackageName: ioc.exception
+ * @PackageName: com.vfd.summer.ioc.exception
  * @ClassName: DuplicateBeanClassException
  * @Description:
  * @author: vfdxvffd

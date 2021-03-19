@@ -1,7 +1,7 @@
-package ioc.exception;
+package com.vfd.summer.ioc.exception;
 
 /**
- * @PackageName: ioc.exception
+ * @PackageName: com.vfd.summer.ioc.exception
  * @ClassName: DataConversionException
  * @Description: 通过@Value注入值的时候可能发生的转化异常
  * @author: vfdxvffd

@@ -1,4 +1,4 @@
-package ioc.tools;
+package com.vfd.summer.ioc.tools;
 
 import java.io.File;
 import java.io.FileFilter;
@@ -13,7 +13,7 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
 /**
- * @PackageName: ioc.tools
+ * @PackageName: com.vfd.summer.ioc.tools
  * @ClassName: MyTools
  * @Description:
  * @author: vfdxvffd
