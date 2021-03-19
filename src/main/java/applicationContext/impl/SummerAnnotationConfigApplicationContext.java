@@ -1,5 +1,6 @@
 package applicationContext.impl;
 
+import aop.ProxyFactory;
 import applicationContext.ApplicationContext;
 import ioc.annotation.*;
 import ioc.bean.BeanDefinition;
@@ -12,6 +13,7 @@ import ioc.tools.MyTools;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -28,6 +30,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
 
     //缓存ioc里面的对象，key：beanName, value：object
     private final Map<String, Object> iocByName = new HashMap<>();
+    //缓存ioc里面的对象，key：beanType, value：object
     private final Map<Class<?>, Object> iocByType = new HashMap<>();
     //保存此ioc容器中所有对象的beanName和beanDefinition的对应关系
     private final Map<String, BeanDefinition> allBeansByName = new HashMap<>();
@@ -39,7 +42,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
     private final Map<Class<?>, String> beanTypeAndName = new HashMap<>();
 
     /**
-     * 加载的时候就扫描并创建对象，日后计划加入懒加载模式
+     * 加载的时候就扫描并创建对象
      * @param basePackages
      */
     public SummerAnnotationConfigApplicationContext(String... basePackages) throws DataConversionException, DuplicateBeanClassException, DuplicateBeanNameException, NoSuchMethodException, NoSuchBeanException, ClassNotFoundException {
@@ -49,7 +52,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
         createObject(beanDefinitions);
         //自动装载
         autowireObject(beanDefinitions);
-        //将切面类中的方法
+        //将切面类中的方法横切目标方法并装入ioc容器中
         setProxyObj();
     }
 
@@ -70,20 +73,40 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
             Qualifier annotation1 = field.getAnnotation(Qualifier.class);
             if (annotation != null) {
                 //对标注了@Autowired的域进行赋值操作
-                Method declaredMethod = getSetMethod(beanClass, field);
+                //Method declaredMethod = getSetMethod(beanClass, field);
                 if (annotation1 != null) {
                     //标注了Qualifier的域，有自己的beanName
                     String qualifier = annotation1.value();
                     try {
-                        declaredMethod.invoke(getBean(beanName),getBean(qualifier));
-                    } catch (DuplicateBeanNameException | NoSuchBeanException | InvocationTargetException | IllegalAccessException | DataConversionException | DuplicateBeanClassException e) {
+                        //declaredMethod.invoke(getBean(beanName),getBean(qualifier));
+                        field.setAccessible(true);
+                        field.set(getBean(beanName),getBean(qualifier));
+                    } catch (DuplicateBeanNameException | NoSuchBeanException | IllegalAccessException | DataConversionException | DuplicateBeanClassException | NoSuchMethodException e) {
                         e.printStackTrace();
                     }
                 } else {
                     //by Type
                     try {
-                        declaredMethod.invoke(getBean(beanName),getBean(field.getType()));
-                    } catch (DuplicateBeanNameException | NoSuchBeanException | InvocationTargetException | IllegalAccessException | DataConversionException | DuplicateBeanClassException e) {
+                        //declaredMethod.invoke(getBean(beanName),getBean(field.getType()));
+                        field.setAccessible(true);
+                        //Object o = getBean(field.getType());        //o可能是代理对象
+                        //                        if (o instanceof Proxy && field.getClass().isInterface()) {  //如果这个域是接口类型，则需要
+                        //                            Object cast = field.getType().cast(o);
+                        //                            field.set(object, cast);
+                        //                        } else  {
+                        //                            field.set(object, o);
+                        //                        }
+                        Object o = getBean(field.getType());
+                        //Object cast = field.getType().cast(o);
+                        Object bean = getBean(beanName);
+                        field.set(bean, o);
+//                        if (o instanceof Proxy && field.getClass().isInterface()) {
+//                            Object cast = field.getType().cast(o);
+//                            field.set(getBean(beanName), cast);
+//                        } else {
+//                            field.set(getBean(beanName),getBean(field.getType()));
+//                        }
+                    } catch (DuplicateBeanNameException | NoSuchBeanException | IllegalAccessException | DataConversionException | DuplicateBeanClassException | NoSuchMethodException e) {
                         e.printStackTrace();
                     }
                 }
@@ -99,20 +122,32 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
             Qualifier annotation1 = field.getAnnotation(Qualifier.class);
             if (annotation != null) {
                 //对标注了@Autowired的域进行赋值操作
-                Method declaredMethod = getSetMethod(beanClass, field);
+                //Method declaredMethod = getSetMethod(beanClass, field);
                 if (annotation1 != null) {
                     //标注了Qualifier的域，有自己的beanName
                     String qualifier = annotation1.value();
                     try {
-                        declaredMethod.invoke(object,getBean(qualifier));
-                    } catch (DuplicateBeanNameException | NoSuchBeanException | InvocationTargetException | IllegalAccessException | DataConversionException | DuplicateBeanClassException e) {
+                        field.setAccessible(true);
+                        field.set(object, getBean(qualifier));
+                        //declaredMethod.invoke(object,getBean(qualifier));
+                    } catch (DuplicateBeanNameException | NoSuchBeanException | IllegalAccessException | DataConversionException | DuplicateBeanClassException | NoSuchMethodException e) {
                         e.printStackTrace();
                     }
                 } else {
                     //by Type
                     try {
-                        declaredMethod.invoke(object,getBean(field.getType()));
-                    } catch (DuplicateBeanNameException | NoSuchBeanException | InvocationTargetException | IllegalAccessException | DataConversionException | DuplicateBeanClassException e) {
+                        field.setAccessible(true);
+                        Object o = getBean(field.getType());        //o可能是代理对象
+                        //Object cast = field.getType().cast(o);
+                        field.set(object, o);
+//                        if (o instanceof Proxy && field.getClass().isInterface()) {  //如果这个域是接口类型，则需要
+//                            Object cast = field.getType().cast(o);
+//                            field.set(object, cast);
+//                        } else  {
+//                            field.set(object, o);
+//                        }
+                        //declaredMethod.invoke(object,getBean(field.getType()));
+                    } catch (DuplicateBeanNameException | NoSuchBeanException | IllegalAccessException | DataConversionException | DuplicateBeanClassException | NoSuchMethodException e) {
                         e.printStackTrace();
                     }
                 }
@@ -120,19 +155,19 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
         }
     }
 
-    private Method getSetMethod(Class<?> beanClass, Field field) {
-        String fieldName = field.getName();
-        Class<?> fieldType = field.getType();
-        String methodName = "set" + fieldName.substring(0, 1).toUpperCase() + fieldName.substring(1);
-        try {
-            return beanClass.getDeclaredMethod(methodName, fieldType);
-        } catch (NoSuchMethodException e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
+//    private Method getSetMethod(Class<?> beanClass, Field field) {
+//        String fieldName = field.getName();
+//        Class<?> fieldType = field.getType();
+//        String methodName = "set" + fieldName.substring(0, 1).toUpperCase() + fieldName.substring(1);
+//        try {
+//            return beanClass.getDeclaredMethod(methodName, fieldType);
+//        } catch (NoSuchMethodException e) {
+//            e.printStackTrace();
+//        }
+//        return null;
+//    }
 
-    private void createObject(Set<BeanDefinition> beanDefinitions) throws DataConversionException, DuplicateBeanClassException, DuplicateBeanNameException {
+    private void createObject(Set<BeanDefinition> beanDefinitions) throws DataConversionException, DuplicateBeanClassException, DuplicateBeanNameException, NoSuchMethodException {
         for (BeanDefinition beanDefinition : beanDefinitions) {
             if (!beanDefinition.getLazy() && beanDefinition.getSingleton()) {        //如果是懒加载模式则先不将其放到ioc容器中
                 createObject(beanDefinition);
@@ -140,7 +175,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
         }
     }
 
-    private Object createObject(BeanDefinition beanDefinition) throws DataConversionException, DuplicateBeanNameException, DuplicateBeanClassException {
+    private Object createObject(BeanDefinition beanDefinition) throws DataConversionException, DuplicateBeanNameException, DuplicateBeanClassException, NoSuchMethodException {
         Class<?> beanClass = beanDefinition.getBeanClass();
         String beanName = beanDefinition.getBeanName();
         try {
@@ -148,75 +183,22 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
             //对对象的属性赋值
             Field[] fields = beanClass.getDeclaredFields(); //拿到所有的域
             for (Field field : fields) {
-                //使用set方法注入标记了@Value的值
+                //注入标记了@Value的值
                 Value annotation = field.getAnnotation(Value.class);
                 if (annotation != null) {
                     String value = annotation.value();
-                    String fieldName = field.getName();
-                    String methodName = "set" + fieldName.substring(0, 1).toUpperCase() + fieldName.substring(1);
-                    Method declaredMethod = beanClass.getDeclaredMethod(methodName, field.getType());
-                    Object val = null;
-                    switch (field.getType().getName()) {
-                        case "int":
-                        case "java.lang.Integer":
-                            try {
-                                val = Integer.parseInt(value);
-                            } catch (NumberFormatException e) {
-                                throw new DataConversionException(value, field.getType().getName());
-                            }
-                            break;
-                        case "java.lang.String":
-                            val = value;
-                            break;
-                        case "char":
-                            if (value.length() < 1)
-                                throw new DataConversionException(value, field.getType().getName());
-                            val = value.charAt(0);
-                            break;
-                        case "long":
-                        case "java.lang.Long":
-                            try {
-                                val = Long.parseLong(value);
-                            } catch (NumberFormatException e) {
-                                throw new DataConversionException(value, field.getType().getName());
-                            }
-                            break;
-                        case "short":
-                        case "java.lang.Short":
-                            try {
-                                val = Short.parseShort(value);
-                            } catch (NumberFormatException e) {
-                                throw new DataConversionException(value, field.getType().getName());
-                            }
-                            break;
-                        case "double":
-                        case "java.lang.Double":
-                            try {
-                                val = Double.parseDouble(value);
-                            } catch (NumberFormatException e) {
-                                throw new DataConversionException(value, field.getType().getName());
-                            }
-                            break;
-                        case "boolean":
-                        case "java.lang.Boolean":
-                            try {
-                                val = Boolean.parseBoolean(value);
-                            } catch (NumberFormatException e) {
-                                throw new DataConversionException(value, field.getType().getName());
-                            }
-                            break;
-                        case "float":
-                        case "java.lang.Float":
-                            try {
-                                val = Float.parseFloat(value);
-                            } catch (NumberFormatException e) {
-                                throw new DataConversionException(value, field.getType().getName());
-                            }
-                            break;
-                        default:
-                            throw new DataConversionException(value, field.getType().getName());
-                    }
-                    declaredMethod.invoke(object, val);
+                    Object val = convertVal(value, field);
+                    field.setAccessible(true);
+                    field.set(object, val);
+//                    String fieldName = field.getName();
+//                    String methodName = "set" + fieldName.substring(0, 1).toUpperCase() + fieldName.substring(1);
+//                    try {
+//                        Method declaredMethod = beanClass.getDeclaredMethod(methodName, field.getType());
+//                        declaredMethod.invoke(object, val);
+//                    } catch (NoSuchMethodException e) {
+//                        //没有set方法
+//
+//                    }
                 }
             }
             if (beanDefinition.getSingleton()) {    //如果是单例模式则加入ioc容器中
@@ -235,10 +217,75 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
                 //非单例则直接返回
                 return object;
             }
-        } catch (InstantiationException | InvocationTargetException | NoSuchMethodException | IllegalAccessException e) {
+        } catch (InstantiationException | InvocationTargetException | IllegalAccessException e) {
             e.printStackTrace();
         }
         return null;
+    }
+
+    private Object convertVal(String value, Field field) throws DataConversionException {
+        Object val = null;
+        switch (field.getType().getName()) {
+            case "int":
+            case "java.lang.Integer":
+                try {
+                    val = Integer.parseInt(value);
+                } catch (NumberFormatException e) {
+                    throw new DataConversionException(value, field.getType().getName());
+                }
+                break;
+            case "java.lang.String":
+                val = value;
+                break;
+            case "char":
+                if (value.length() < 1)
+                    throw new DataConversionException(value, field.getType().getName());
+                val = value.charAt(0);
+                break;
+            case "long":
+            case "java.lang.Long":
+                try {
+                    val = Long.parseLong(value);
+                } catch (NumberFormatException e) {
+                    throw new DataConversionException(value, field.getType().getName());
+                }
+                break;
+            case "short":
+            case "java.lang.Short":
+                try {
+                    val = Short.parseShort(value);
+                } catch (NumberFormatException e) {
+                    throw new DataConversionException(value, field.getType().getName());
+                }
+                break;
+            case "double":
+            case "java.lang.Double":
+                try {
+                    val = Double.parseDouble(value);
+                } catch (NumberFormatException e) {
+                    throw new DataConversionException(value, field.getType().getName());
+                }
+                break;
+            case "boolean":
+            case "java.lang.Boolean":
+                try {
+                    val = Boolean.parseBoolean(value);
+                } catch (NumberFormatException e) {
+                    throw new DataConversionException(value, field.getType().getName());
+                }
+                break;
+            case "float":
+            case "java.lang.Float":
+                try {
+                    val = Float.parseFloat(value);
+                } catch (NumberFormatException e) {
+                    throw new DataConversionException(value, field.getType().getName());
+                }
+                break;
+            default:
+                throw new DataConversionException(value, field.getType().getName());
+        }
+        return val;
     }
 
     /**
@@ -258,9 +305,17 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
                     aspect.add(clazz);
                 }
                 Component componentAnnotation = clazz.getAnnotation(Component.class);
-                if (componentAnnotation != null) {      //如果此类带了@Component注解
+                Repository repository = clazz.getAnnotation(Repository.class);
+                Service service = clazz.getAnnotation(Service.class);
+                Controller controller = clazz.getAnnotation(Controller.class);
+                String beanName = null;
+                if (componentAnnotation != null)    beanName = componentAnnotation.value();
+                if (repository != null)    beanName = repository.value();
+                if (service != null)    beanName = service.value();
+                if (controller != null)    beanName = controller.value();
+                if (beanName != null) {      //如果此类带了@Component注解
                     //获取Component注解的值
-                    String beanName = componentAnnotation.value();
+                     //= componentAnnotation.value();
                     if ("".equals(beanName)) {    //没有添加beanName则默认是类的首字母小写
                         //获取类名首字母小写
                         String className = clazz.getName().replaceAll(clazz.getPackage().getName() + ".", "");
@@ -272,10 +327,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
                     Scope scope = clazz.getAnnotation(Scope.class);
                     if (scope != null) {
                         String value = scope.value();
-                        if ("prototype".equals(value)) {        //指定为非单例模式
-//                            if (lazy) {
-//                                throw
-//                            }
+                        if ("prototype".equals(value)) {        //指定为非单例模式321
                             singleton = false;
                         } else if (!"singleton".equals(value)) { //非法值
                             throw new IllegalStateException();
@@ -304,7 +356,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
                     String value = before.value();  //value应该为全方法名  com.vfd.ioc.Student.setName(String)
                     String className = value.substring(0,value.substring(0,value.indexOf("(")).lastIndexOf("."));
                     Class<?> aClass = Class.forName(className);
-                    aop.ProxyFactory proxyFactory = new aop.ProxyFactory(getBean(aClass));
+                    ProxyFactory proxyFactory = new ProxyFactory(getBean(aClass));
                     Object proxy = proxyFactory.getProxyInstanceBefore(getProxyMethod(value, aClass), getBean(clazz), method, null);
                     iocByType.put(aClass, proxy);
                     iocByName.put(beanTypeAndName.get(aClass), proxy);
@@ -314,7 +366,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
                     String value = after.value();  //value应该为全方法名  com.vfd.ioc.Student.setName(String)
                     String className = value.substring(0,value.substring(0,value.indexOf("(")).lastIndexOf("."));
                     Class<?> aClass = Class.forName(className);
-                    aop.ProxyFactory proxyFactory = new aop.ProxyFactory(getBean(aClass));
+                    ProxyFactory proxyFactory = new ProxyFactory(getBean(aClass));
                     Object proxy = proxyFactory.getProxyInstanceAfter(getProxyMethod(value, aClass), getBean(clazz), method, null);
                     iocByType.put(aClass, proxy);
                     iocByName.put(beanTypeAndName.get(aClass), proxy);
@@ -324,7 +376,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
                     String value = afterThrowing.value();
                     String className = value.substring(0,value.substring(0,value.indexOf("(")).lastIndexOf("."));
                     Class<?> aClass = Class.forName(className);
-                    aop.ProxyFactory proxyFactory = new aop.ProxyFactory(getBean(aClass));
+                    ProxyFactory proxyFactory = new ProxyFactory(getBean(aClass));
                     Object proxy = proxyFactory.getProxyInstanceAfterThrowing(getProxyMethod(value, aClass), getBean(clazz), method, null);
                     iocByType.put(aClass, proxy);
                     iocByName.put(beanTypeAndName.get(aClass), proxy);
@@ -355,7 +407,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
     }
 
     @Override
-    public Object getBean(String beanName) throws NoSuchBeanException, DataConversionException, DuplicateBeanClassException, DuplicateBeanNameException {
+    public Object getBean(String beanName) throws NoSuchBeanException, DataConversionException, DuplicateBeanClassException, DuplicateBeanNameException, NoSuchMethodException {
         Object bean = iocByName.getOrDefault(beanName, null);
         if (bean == null) {     //bean为null则说明没有在初始化的时候进行加载
             BeanDefinition beanDefinition = allBeansByName.get(beanName);
@@ -380,9 +432,21 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
     }
 
     @Override
-    public <T> T getBean(Class<T> beanType) throws NoSuchBeanException, DataConversionException, DuplicateBeanClassException, DuplicateBeanNameException {
+    public <T> T getBean(Class<T> beanType) throws NoSuchBeanException, DataConversionException, DuplicateBeanClassException, DuplicateBeanNameException, NoSuchMethodException {
         Object o = iocByType.getOrDefault(beanType, null);
         if (o == null) {
+            if (beanType.isInterface()) {       //如果是接口类型，则在其中找它的实现类
+                Set<Map.Entry<Class<?>, Object>> entries = iocByType.entrySet();
+                for (Map.Entry<Class<?>, Object> entry : entries) {
+                    Class<?>[] interfaces = entry.getKey().getInterfaces();
+                    for (Class<?> anInterface : interfaces) {
+                        if (anInterface.equals(beanType)) {
+                            //ioc中有一个实现了此接口的bean
+                            return (T) entry.getValue();
+                        }
+                    }
+                }
+            }
             BeanDefinition beanDefinition = allBeansByType.get(beanType);
             if (beanDefinition == null) {
                 throw new NoSuchBeanException();
