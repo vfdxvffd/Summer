@@ -1,4 +1,4 @@
-package ioc.annotation;
+package com.vfd.summer.ioc.annotation;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
