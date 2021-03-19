@@ -1,13 +1,13 @@
-package aop;
+package com.vfd.summer.aop;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.Arrays;
 
 /**
- * @PackageName: aop
+ * @PackageName: com.vfd.summer.aop
  * @ClassName: ProxyFactory
- * @Description:
+ * @Description: 代理工厂，生产代理对象，根据切面方法执行的时机生产代理对象
  * @author: vfdxvffd
  * @date: 2021/3/18 上午10:52
  */
@@ -19,7 +19,6 @@ public class ProxyFactory {
         this.realObj = realObj;
     }
 
-    //Object aspect, Method beforeMethod, Object[] beforeArgs, Method afterMethod, Object[] afterArgs
     public Object getProxyInstanceBefore(Method proxyMethod, Object aspect, Method beforeMethod, Object[] beforeArgs) {
         return Proxy.newProxyInstance(realObj.getClass().getClassLoader(),
                 realObj.getClass().getInterfaces(),
@@ -60,6 +59,7 @@ public class ProxyFactory {
                                 afterMethod != null) {
                             afterMethod.invoke(aspect, afterArgs);
                         }
+                        e.printStackTrace();
                     }
                     return result;
                 });
