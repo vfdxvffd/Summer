@@ -4,8 +4,6 @@ import ioc.exception.DataConversionException;
 import ioc.exception.DuplicateBeanClassException;
 import ioc.exception.DuplicateBeanNameException;
 import ioc.exception.NoSuchBeanException;
-import ioc.test.Man;
-import ioc.test.Person;
 
 /**
  * @PackageName: PACKAGE_NAME
@@ -19,9 +17,13 @@ public class Test {
     @org.junit.Test
     public void test() throws NoSuchMethodException, NoSuchBeanException, DuplicateBeanNameException, DuplicateBeanClassException, ClassNotFoundException, DataConversionException {
         ApplicationContext ioc = new SummerAnnotationConfigApplicationContext("ioc.test");
-        Person person = ioc.getBean(Man.class);
-        person.say("hello world", 3);
-        System.out.println("=============");
-        person.say();
+//        Person person = ioc.getBean(Man.class);
+//        person.say("hello world", 3);
+//        System.out.println("=============");
+//        person.say();
+    }
+
+    @org.junit.Test
+    public void test01() throws NoSuchMethodException {
     }
 }
