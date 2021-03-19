@@ -13,7 +13,7 @@ import java.util.Arrays;
  */
 public class ProxyFactory {
 
-    private Object realObj;
+    private final Object realObj;
 
     public ProxyFactory(Object realObj) {
         this.realObj = realObj;
