@@ -1,6 +1,10 @@
 package applicationContext.impl;
 
 import aop.ProxyFactory;
+import aop.annotation.After;
+import aop.annotation.AfterThrowing;
+import aop.annotation.Aspect;
+import aop.annotation.Before;
 import applicationContext.ApplicationContext;
 import ioc.annotation.*;
 import ioc.bean.BeanDefinition;
@@ -37,15 +41,17 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
     //保存此ioc容器中所有对象的beanType和beanDefinition的对应关系
     private final Map<Class<?>, BeanDefinition> allBeansByType = new HashMap<>();
     //保存所有的切面类
-    private final Set<Class<?>> aspect = new HashSet<>();
+    //private final Set<Class<?>> aspect = new HashSet<>();
     //保存bean的type和name的一一对应关系，方面切面修改为代理类
     private final Map<Class<?>, String> beanTypeAndName = new HashMap<>();
+
+    private final Map<Class<?>, Set<Method>> aspect = new HashMap<>();
 
     /**
      * 加载的时候就扫描并创建对象
      * @param basePackages
      */
-    public SummerAnnotationConfigApplicationContext(String... basePackages) throws DataConversionException, DuplicateBeanClassException, DuplicateBeanNameException, NoSuchMethodException, NoSuchBeanException, ClassNotFoundException {
+    public SummerAnnotationConfigApplicationContext(String... basePackages) throws DataConversionException, DuplicateBeanClassException, DuplicateBeanNameException, NoSuchMethodException, NoSuchBeanException, ClassNotFoundException, IllegalAccessException {
         //遍历包，找到目标类(原材料)
         Set<BeanDefinition> beanDefinitions = findBeanDefinitions(basePackages);
         //根据原材料创建bean
@@ -53,10 +59,10 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
         //自动装载
         autowireObject(beanDefinitions);
         //将切面类中的方法横切目标方法并装入ioc容器中
-        setProxyObj();
+        //setProxyObj();
     }
 
-    private void autowireObject (Set<BeanDefinition> beanDefinitions) {
+    private void autowireObject (Set<BeanDefinition> beanDefinitions) throws NoSuchMethodException, DuplicateBeanClassException, IllegalAccessException, DuplicateBeanNameException, NoSuchBeanException, DataConversionException, ClassNotFoundException {
         for (BeanDefinition beanDefinition : beanDefinitions) {
             if (!beanDefinition.getLazy() && beanDefinition.getSingleton()) {
                 autowireObject(beanDefinition);
@@ -64,7 +70,55 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
         }
     }
 
-    private void autowireObject (BeanDefinition beanDefinition) {
+    private boolean haveNotWired (Class<?> beanClass) throws NoSuchBeanException, DuplicateBeanNameException, DuplicateBeanClassException, NoSuchMethodException, DataConversionException, IllegalAccessException, ClassNotFoundException {
+        if (beanClass.isInterface()) {          //如果是接口就要去IOC容器中找它的实现类
+            //beanClass = getBean(beanClass).getClass();
+            beanClass = getImplClassByInterface(beanClass);
+        }
+//        System.out.println(iocByType.get(beanClass));
+//        System.out.println(beanClass + "====================");
+        if (Proxy.isProxyClass(iocByType.get(beanClass).getClass())) {
+            return false;
+        }
+        Field[] declaredFields = beanClass.getDeclaredFields();
+        for (Field field : declaredFields) {
+            Autowired autowired = field.getAnnotation(Autowired.class);
+            field.setAccessible(true);
+            Object o = field.get(getBean(beanClass));
+            if (autowired != null && o == null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private Class<?> getImplClassByInterface (Class<?> type) {
+        Set<Class<?>> set = iocByType.keySet();
+        if (type.isInterface()) {
+            for (Class<?> clazz : set) {
+                Class<?>[] interfaces = clazz.getInterfaces();
+                for (Class<?> anInterface : interfaces) {
+                    if (anInterface.equals(type)) {
+                        return clazz;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 注入逻辑：
+     *      1、先判断要注入的bean（service里的dao）是否已经完成注入，如果已经完成则直接跳转3，否则跳转2
+     *      2、递归调用为这个bean（service里的dao）先进行注入
+     *      3、对这个bean（service）进行代理包裹（如果需要）
+     *      4、对这个bean（service）进行注入
+     * @param beanDefinition
+     */
+    private void autowireObject (BeanDefinition beanDefinition) throws NoSuchMethodException, IllegalAccessException, DataConversionException, DuplicateBeanNameException, NoSuchBeanException, DuplicateBeanClassException, ClassNotFoundException {
+        if (!haveNotWired(beanDefinition.getBeanClass())) {
+            return;
+        }
         Class<?> beanClass = beanDefinition.getBeanClass();
         String beanName = beanDefinition.getBeanName();
         Field[] declaredFields = beanClass.getDeclaredFields();
@@ -72,6 +126,18 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
             Autowired annotation = field.getAnnotation(Autowired.class);
             Qualifier annotation1 = field.getAnnotation(Qualifier.class);
             if (annotation != null) {
+
+                if (haveNotWired(field.getType())) {     //判断这个域是否有还未注入的对象，如果有，先为其注入
+                    Class<?> type = field.getType();
+                    if (type.isInterface()) {
+                        //type = getBean(type).getClass();
+                        type = getImplClassByInterface(type);
+                    }
+                    autowireObject(allBeansByType.get(type));
+                }
+//                if (aClass.isInterface()) {
+//                    aClass = getBean(aClass).getClass();
+//                }
                 //对标注了@Autowired的域进行赋值操作
                 //Method declaredMethod = getSetMethod(beanClass, field);
                 if (annotation1 != null) {
@@ -87,27 +153,41 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
                 } else {
                     //by Type
                     try {
-                        //declaredMethod.invoke(getBean(beanName),getBean(field.getType()));
                         field.setAccessible(true);
-                        //Object o = getBean(field.getType());        //o可能是代理对象
-                        //                        if (o instanceof Proxy && field.getClass().isInterface()) {  //如果这个域是接口类型，则需要
-                        //                            Object cast = field.getType().cast(o);
-                        //                            field.set(object, cast);
-                        //                        } else  {
-                        //                            field.set(object, o);
-                        //                        }
-                        Object o = getBean(field.getType());
-                        //Object cast = field.getType().cast(o);
-                        Object bean = getBean(beanName);
-                        field.set(bean, o);
-//                        if (o instanceof Proxy && field.getClass().isInterface()) {
-//                            Object cast = field.getType().cast(o);
-//                            field.set(getBean(beanName), cast);
-//                        } else {
-//                            field.set(getBean(beanName),getBean(field.getType()));
-//                        }
+                        field.set(getBean(beanName), getBean(field.getType()));
                     } catch (DuplicateBeanNameException | NoSuchBeanException | IllegalAccessException | DataConversionException | DuplicateBeanClassException | NoSuchMethodException e) {
                         e.printStackTrace();
+                    }
+                }
+                if (aspect.containsKey(beanClass)) {         //判断这个注入的对象是否需要被代理，如果需要则代理
+                    Set<Method> methods = aspect.get(beanClass);
+                    for (Method method : methods) {
+                        Before before = method.getAnnotation(Before.class);
+                        After after = method.getAnnotation(After.class);
+                        AfterThrowing afterThrowing = method.getAnnotation(AfterThrowing.class);
+                        if (before != null) {
+                            //前置
+                            ProxyFactory proxyFactory = new ProxyFactory(getBean(beanName));
+                            Object proxy = proxyFactory.getProxyInstanceBefore(getProxyMethod(before.value(), beanClass),
+                                    getBean(method.getDeclaringClass()), method, null);
+                            iocByType.put(beanClass, proxy);
+                            iocByName.put(beanTypeAndName.get(beanClass), proxy);
+                        }
+                        if (after != null) {
+                            //后置
+                            ProxyFactory proxyFactory = new ProxyFactory(getBean(beanName));
+                            Object proxy = proxyFactory.getProxyInstanceAfter(getProxyMethod(after.value(), beanClass),
+                                    getBean(method.getDeclaringClass()), method, null);
+                            iocByType.put(beanClass, proxy);
+                            iocByName.put(beanTypeAndName.get(beanClass), proxy);
+                        }
+                        if (afterThrowing != null) {
+                            ProxyFactory proxyFactory = new ProxyFactory(getBean(beanName));
+                            Object proxy = proxyFactory.getProxyInstanceAfterThrowing(getProxyMethod(afterThrowing.value(), beanClass),
+                                    getBean(method.getDeclaringClass()), method, null);
+                            iocByType.put(beanClass, proxy);
+                            iocByName.put(beanTypeAndName.get(beanClass), proxy);
+                        }
                     }
                 }
             }
@@ -130,7 +210,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
                         field.setAccessible(true);
                         field.set(object, getBean(qualifier));
                         //declaredMethod.invoke(object,getBean(qualifier));
-                    } catch (DuplicateBeanNameException | NoSuchBeanException | IllegalAccessException | DataConversionException | DuplicateBeanClassException | NoSuchMethodException e) {
+                    } catch (DuplicateBeanNameException | NoSuchBeanException | IllegalAccessException | DataConversionException | DuplicateBeanClassException | NoSuchMethodException | ClassNotFoundException e) {
                         e.printStackTrace();
                     }
                 } else {
@@ -147,7 +227,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
 //                            field.set(object, o);
 //                        }
                         //declaredMethod.invoke(object,getBean(field.getType()));
-                    } catch (DuplicateBeanNameException | NoSuchBeanException | IllegalAccessException | DataConversionException | DuplicateBeanClassException | NoSuchMethodException e) {
+                    } catch (DuplicateBeanNameException | NoSuchBeanException | IllegalAccessException | DataConversionException | DuplicateBeanClassException | NoSuchMethodException | ClassNotFoundException e) {
                         e.printStackTrace();
                     }
                 }
@@ -293,7 +373,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
      * @param basePackages
      * @return
      */
-    private Set<BeanDefinition> findBeanDefinitions(String... basePackages) throws IllegalStateException {
+    private Set<BeanDefinition> findBeanDefinitions(String... basePackages) throws IllegalStateException, ClassNotFoundException {
         Set<BeanDefinition> beanDefinitions = new HashSet<>();
         for (String basePackage : basePackages) {
             //1、获取包下的所有类
@@ -301,8 +381,40 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
             for (Class<?> clazz : classes) {
                 //2、遍历这些类，找到添加了注解的类
                 //先将带有Aspect注解的类保存起来
-                if (clazz.getAnnotation(aop.annotation.Aspect.class) != null) {
-                    aspect.add(clazz);
+                if (clazz.getAnnotation(Aspect.class) != null) {
+                    Method[] methods = clazz.getDeclaredMethods();
+                    for (Method method : methods) {
+                        Before before = method.getAnnotation(Before.class);
+                        After after = method.getAnnotation(After.class);
+                        AfterThrowing afterThrowing = method.getAnnotation(AfterThrowing.class);
+                        if (before != null) {
+                            //前置
+                            String value = before.value();  //value应该为全方法名  com.vfd.ioc.Student.setName(String)
+                            String className = value.substring(0,value.substring(0,value.indexOf("(")).lastIndexOf("."));
+                            Class<?> aClass = Class.forName(className);
+                            Set<Method> set = aspect.getOrDefault(aClass, new HashSet<>());
+                            set.add(method);
+                            aspect.put(aClass, set);
+                        }
+                        if (after != null) {
+                            //后置
+                            String value = after.value();  //value应该为全方法名  com.vfd.ioc.Student.setName(String)
+                            String className = value.substring(0,value.substring(0,value.indexOf("(")).lastIndexOf("."));
+                            Class<?> aClass = Class.forName(className);
+                            Set<Method> set = aspect.getOrDefault(aClass, new HashSet<>());
+                            set.add(method);
+                            aspect.put(aClass, set);
+                        }
+                        if (afterThrowing != null) {
+                            //抛出异常
+                            String value = afterThrowing.value();
+                            String className = value.substring(0,value.substring(0,value.indexOf("(")).lastIndexOf("."));
+                            Class<?> aClass = Class.forName(className);
+                            Set<Method> set = aspect.getOrDefault(aClass, new HashSet<>());
+                            set.add(method);
+                            aspect.put(aClass, set);
+                        }
+                    }
                 }
                 Component componentAnnotation = clazz.getAnnotation(Component.class);
                 Repository repository = clazz.getAnnotation(Repository.class);
@@ -344,46 +456,46 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
         return beanDefinitions;
     }
 
-    private void setProxyObj() throws ClassNotFoundException, NoSuchMethodException, NoSuchBeanException, DuplicateBeanNameException, DuplicateBeanClassException, DataConversionException {
-        for (Class<?> clazz : aspect) {
-            Method[] methods = clazz.getDeclaredMethods();
-            for (Method method : methods) {
-                aop.annotation.Before before = method.getAnnotation(aop.annotation.Before.class);
-                aop.annotation.After after = method.getAnnotation(aop.annotation.After.class);
-                aop.annotation.AfterThrowing afterThrowing = method.getAnnotation(aop.annotation.AfterThrowing.class);
-                if (before != null) {
-                    //前置
-                    String value = before.value();  //value应该为全方法名  com.vfd.ioc.Student.setName(String)
-                    String className = value.substring(0,value.substring(0,value.indexOf("(")).lastIndexOf("."));
-                    Class<?> aClass = Class.forName(className);
-                    ProxyFactory proxyFactory = new ProxyFactory(getBean(aClass));
-                    Object proxy = proxyFactory.getProxyInstanceBefore(getProxyMethod(value, aClass), getBean(clazz), method, null);
-                    iocByType.put(aClass, proxy);
-                    iocByName.put(beanTypeAndName.get(aClass), proxy);
-                }
-                if (after != null) {
-                    //后置
-                    String value = after.value();  //value应该为全方法名  com.vfd.ioc.Student.setName(String)
-                    String className = value.substring(0,value.substring(0,value.indexOf("(")).lastIndexOf("."));
-                    Class<?> aClass = Class.forName(className);
-                    ProxyFactory proxyFactory = new ProxyFactory(getBean(aClass));
-                    Object proxy = proxyFactory.getProxyInstanceAfter(getProxyMethod(value, aClass), getBean(clazz), method, null);
-                    iocByType.put(aClass, proxy);
-                    iocByName.put(beanTypeAndName.get(aClass), proxy);
-                }
-                if (afterThrowing != null) {
-                    //抛出异常
-                    String value = afterThrowing.value();
-                    String className = value.substring(0,value.substring(0,value.indexOf("(")).lastIndexOf("."));
-                    Class<?> aClass = Class.forName(className);
-                    ProxyFactory proxyFactory = new ProxyFactory(getBean(aClass));
-                    Object proxy = proxyFactory.getProxyInstanceAfterThrowing(getProxyMethod(value, aClass), getBean(clazz), method, null);
-                    iocByType.put(aClass, proxy);
-                    iocByName.put(beanTypeAndName.get(aClass), proxy);
-                }
-            }
-        }
-    }
+//    private void setProxyObj() throws ClassNotFoundException, NoSuchMethodException, NoSuchBeanException, DuplicateBeanNameException, DuplicateBeanClassException, DataConversionException, IllegalAccessException {
+//        for (Class<?> clazz : aspect) {
+//            Method[] methods = clazz.getDeclaredMethods();
+//            for (Method method : methods) {
+//                aop.annotation.Before before = method.getAnnotation(aop.annotation.Before.class);
+//                aop.annotation.After after = method.getAnnotation(aop.annotation.After.class);
+//                aop.annotation.AfterThrowing afterThrowing = method.getAnnotation(aop.annotation.AfterThrowing.class);
+//                if (before != null) {
+//                    //前置
+//                    String value = before.value();  //value应该为全方法名  com.vfd.ioc.Student.setName(String)
+//                    String className = value.substring(0,value.substring(0,value.indexOf("(")).lastIndexOf("."));
+//                    Class<?> aClass = Class.forName(className);
+//                    ProxyFactory proxyFactory = new ProxyFactory(getBean(aClass));
+//                    Object proxy = proxyFactory.getProxyInstanceBefore(getProxyMethod(value, aClass), getBean(clazz), method, null);
+//                    iocByType.put(aClass, proxy);
+//                    iocByName.put(beanTypeAndName.get(aClass), proxy);
+//                }
+//                if (after != null) {
+//                    //后置
+//                    String value = after.value();  //value应该为全方法名  com.vfd.ioc.Student.setName(String)
+//                    String className = value.substring(0,value.substring(0,value.indexOf("(")).lastIndexOf("."));
+//                    Class<?> aClass = Class.forName(className);
+//                    ProxyFactory proxyFactory = new ProxyFactory(getBean(aClass));
+//                    Object proxy = proxyFactory.getProxyInstanceAfter(getProxyMethod(value, aClass), getBean(clazz), method, null);
+//                    iocByType.put(aClass, proxy);
+//                    iocByName.put(beanTypeAndName.get(aClass), proxy);
+//                }
+//                if (afterThrowing != null) {
+//                    //抛出异常
+//                    String value = afterThrowing.value();
+//                    String className = value.substring(0,value.substring(0,value.indexOf("(")).lastIndexOf("."));
+//                    Class<?> aClass = Class.forName(className);
+//                    ProxyFactory proxyFactory = new ProxyFactory(getBean(aClass));
+//                    Object proxy = proxyFactory.getProxyInstanceAfterThrowing(getProxyMethod(value, aClass), getBean(clazz), method, null);
+//                    iocByType.put(aClass, proxy);
+//                    iocByName.put(beanTypeAndName.get(aClass), proxy);
+//                }
+//            }
+//        }
+//    }
 
     private Method getProxyMethod(String value, Class<?> aClass) throws ClassNotFoundException, NoSuchMethodException {
         String fullMethodName = value.substring(0, value.indexOf("("));     //全方法名
@@ -407,7 +519,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
     }
 
     @Override
-    public Object getBean(String beanName) throws NoSuchBeanException, DataConversionException, DuplicateBeanClassException, DuplicateBeanNameException, NoSuchMethodException {
+    public Object getBean(String beanName) throws NoSuchBeanException, DataConversionException, DuplicateBeanClassException, DuplicateBeanNameException, NoSuchMethodException, IllegalAccessException, ClassNotFoundException {
         Object bean = iocByName.getOrDefault(beanName, null);
         if (bean == null) {     //bean为null则说明没有在初始化的时候进行加载
             BeanDefinition beanDefinition = allBeansByName.get(beanName);
@@ -432,7 +544,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
     }
 
     @Override
-    public <T> T getBean(Class<T> beanType) throws NoSuchBeanException, DataConversionException, DuplicateBeanClassException, DuplicateBeanNameException, NoSuchMethodException {
+    public <T> T getBean(Class<T> beanType) throws NoSuchBeanException, DataConversionException, DuplicateBeanClassException, DuplicateBeanNameException, NoSuchMethodException, IllegalAccessException, ClassNotFoundException {
         Object o = iocByType.getOrDefault(beanType, null);
         if (o == null) {
             if (beanType.isInterface()) {       //如果是接口类型，则在其中找它的实现类
