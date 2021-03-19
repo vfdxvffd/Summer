@@ -1,12 +1,12 @@
-package applicationContext;
+package com.vfd.summer.applicationContext;
 
-import ioc.exception.DataConversionException;
-import ioc.exception.DuplicateBeanClassException;
-import ioc.exception.DuplicateBeanNameException;
-import ioc.exception.NoSuchBeanException;
+import com.vfd.summer.ioc.exception.DataConversionException;
+import com.vfd.summer.ioc.exception.DuplicateBeanClassException;
+import com.vfd.summer.ioc.exception.DuplicateBeanNameException;
+import com.vfd.summer.ioc.exception.NoSuchBeanException;
 
 /**
- * @PackageName: ioc.applicationContext
+ * @PackageName: com.vfd.summer.ioc.applicationContext
  * @ClassName: ApplicationContext
  * @Description:
  * @author: vfdxvffd
