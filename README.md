@@ -1,7 +1,10 @@
 # Summer
 
+[![](https://img.shields.io/badge/Release-v1.1-orange)](https://github.com/vfdxvffd/Summer/releases/tag/v1.1) &nbsp;&nbsp;&nbsp;
+
 参考Spring框架实现一个简易类似的Java框架
 项目计划：
+
 * IOC容器
 * AOP切面
 
