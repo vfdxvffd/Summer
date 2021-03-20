@@ -101,6 +101,10 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
         if (beanClass == null) {
             return true;
         }
+        if (!allBeansByType.get(beanClass).getSingleton()) {
+            //对于非单例
+            return true;
+        }
         if (Proxy.isProxyClass(getBean(beanClass).getClass())/*iocByType.get(beanClass).getClass())*/) {
             return false;
         }
@@ -155,6 +159,9 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
      * @throws ClassNotFoundException
      */
     private void autowireObject (BeanDefinition beanDefinition) throws NoSuchMethodException, IllegalAccessException, DataConversionException, DuplicateBeanNameException, NoSuchBeanException, DuplicateBeanClassException, ClassNotFoundException {
+        if (!beanDefinition.getSingleton()) {
+            return;
+        }
         if (!haveNotWired(beanDefinition.getBeanClass())) {
             return;
         }
@@ -660,7 +667,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
         Object o = iocByType.getOrDefault(beanType, null);
         if (o == null) {
             if (beanType.isInterface()) {       //如果是接口类型，则在其中找它的实现类
-                Set<Map.Entry<Class<?>, Object>> entries = iocByType.entrySet();
+                Set<Map.Entry<Class<?>, Object>> entries = iocByType.entrySet();    //此处是在ioc容器中查找实现类，可能对于延迟加载的bean会出问题
                 for (Map.Entry<Class<?>, Object> entry : entries) {
                     Class<?>[] interfaces = entry.getKey().getInterfaces();
                     for (Class<?> anInterface : interfaces) {
@@ -671,7 +678,12 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
                     }
                 }
             }
-            BeanDefinition beanDefinition = allBeansByType.get(beanType);
+            BeanDefinition beanDefinition = null;
+            if (beanType.isInterface()) {
+                 beanDefinition = allBeansByType.get(getImplClassByInterface(beanType));
+            } else {
+                beanDefinition = allBeansByType.get(beanType);
+            }
             if (beanDefinition == null) {
                 throw new NoSuchBeanException();
             } else if (beanDefinition.getSingleton()){
