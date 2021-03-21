@@ -1,10 +1,7 @@
 package com.vfd.summer.applicationContext.impl;
 
 import com.vfd.summer.aop.ProxyFactory;
-import com.vfd.summer.aop.annotation.After;
-import com.vfd.summer.aop.annotation.AfterThrowing;
-import com.vfd.summer.aop.annotation.Aspect;
-import com.vfd.summer.aop.annotation.Before;
+import com.vfd.summer.aop.annotation.*;
 import com.vfd.summer.applicationContext.ApplicationContext;
 import com.vfd.summer.ioc.annotation.*;
 import com.vfd.summer.ioc.bean.BeanDefinition;
@@ -14,14 +11,8 @@ import com.vfd.summer.ioc.exception.DuplicateBeanNameException;
 import com.vfd.summer.ioc.exception.NoSuchBeanException;
 import com.vfd.summer.ioc.tools.MyTools;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.lang.reflect.Proxy;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.lang.reflect.*;
+import java.util.*;
 
 /**
  * @PackageName: iocByName.applicationContext
@@ -162,7 +153,10 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
         if (!beanDefinition.getSingleton()) {
             return;
         }
-        if (!haveNotWired(beanDefinition.getBeanClass())) {
+        //对于非单例模式在调用getBean时又会去调用createObject,但能调用autowired说明已经调用过一次createObject了，
+        //为了避免重复调用我们直接在上面返回
+        autowireObject(getBean(beanDefinition.getBeanName()));
+        /*if (!haveNotWired(beanDefinition.getBeanClass())) {
             return;
         }
         Class<?> beanClass = beanDefinition.getBeanClass();
@@ -175,25 +169,20 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
                 if (haveNotWired(field.getType())) {     //判断这个域是否有还未注入的对象，如果有，先为其注入
                     Class<?> type = field.getType();
                     if (type.isInterface()) {
-                        //type = getBean(type).getClass();
                         type = getImplClassByInterface(type);
                     }
                     autowireObject(allBeansByType.get(type));
                 }
                 //对标注了@Autowired的域进行赋值操作
-                //Method declaredMethod = getSetMethod(beanClass, field);
-                if (annotation1 != null) {
-                    //标注了Qualifier的域，有自己的beanName
+                if (annotation1 != null) {      //标注了Qualifier的域，有自己的beanName
                     String qualifier = annotation1.value();
                     try {
-                        //declaredMethod.invoke(getBean(beanName),getBean(qualifier));
                         field.setAccessible(true);
                         field.set(getBean(beanName),getBean(qualifier));
                     } catch (DuplicateBeanNameException | NoSuchBeanException | IllegalAccessException | DataConversionException | DuplicateBeanClassException | NoSuchMethodException e) {
                         e.printStackTrace();
                     }
-                } else {
-                    //by Type
+                } else {        //by Type
                     try {
                         field.setAccessible(true);
                         field.set(getBean(beanName), getBean(field.getType()));
@@ -201,40 +190,96 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
                         e.printStackTrace();
                     }
                 }
-                if (aspect.containsKey(beanClass)) {         //判断这个注入的对象是否需要被代理，如果需要则代理
-                    Set<Method> methods = aspect.get(beanClass);
-                    for (Method method : methods) {
-                        Before before = method.getAnnotation(Before.class);
-                        After after = method.getAnnotation(After.class);
-                        AfterThrowing afterThrowing = method.getAnnotation(AfterThrowing.class);
-                        if (before != null) {
-                            //前置
-                            ProxyFactory proxyFactory = new ProxyFactory(getBean(beanName));
-                            Object proxy = proxyFactory.getProxyInstanceBefore(getProxyMethod(before.value(), beanClass),
-                                    getBean(method.getDeclaringClass()), method, null);
-                            iocByType.put(beanClass, proxy);
-                            iocByName.put(beanTypeAndName.get(beanClass), proxy);
-                        }
-                        if (after != null) {
-                            //后置
-                            ProxyFactory proxyFactory = new ProxyFactory(getBean(beanName));
-                            Object proxy = proxyFactory.getProxyInstanceAfter(getProxyMethod(after.value(), beanClass),
-                                    getBean(method.getDeclaringClass()), method, null);
-                            iocByType.put(beanClass, proxy);
-                            iocByName.put(beanTypeAndName.get(beanClass), proxy);
-                        }
-                        if (afterThrowing != null) {
-                            //异常
-                            ProxyFactory proxyFactory = new ProxyFactory(getBean(beanName));
-                            Object proxy = proxyFactory.getProxyInstanceAfterThrowing(getProxyMethod(afterThrowing.value(), beanClass),
-                                    getBean(method.getDeclaringClass()), method, null);
-                            iocByType.put(beanClass, proxy);
-                            iocByName.put(beanTypeAndName.get(beanClass), proxy);
-                        }
-                    }
-                }
             }
         }
+        setProxy(beanClass);*/
+        /*if (aspect.containsKey(beanClass)) {         //判断这个注入的对象是否需要被代理，如果需要则代理
+            Set<Method> methods = aspect.get(beanClass);
+            Map<Method, Set<Method>> aspectBefore = new HashMap<>();
+            Map<Method, Set<Method>> aspectAfter = new HashMap<>();
+            Map<Method, Set<Method>> aspectAfterThrowing = new HashMap<>();
+            Map<Method, Set<Method>> aspectAfterReturning = new HashMap<>();
+            for (Method method : methods) {
+                Before before = method.getAnnotation(Before.class);
+                After after = method.getAnnotation(After.class);
+                AfterThrowing afterThrowing = method.getAnnotation(AfterThrowing.class);
+                AfterReturning afterReturning = method.getAnnotation(AfterReturning.class);
+                if (before != null) {
+                    //前置
+                    Method proxyMethod = getProxyMethod(before.value(), beanClass);
+                    Set<Method> aspectMSet = aspectBefore.getOrDefault(proxyMethod, new HashSet<>());
+                    aspectMSet.add(method);
+                    aspectBefore.put(proxyMethod, aspectMSet);
+                }
+                if (after != null) {
+                    //后置
+                    Method proxyMethod = getProxyMethod(after.value(), beanClass);
+                    Set<Method> aspectMSet = aspectAfter.getOrDefault(proxyMethod, new HashSet<>());
+                    aspectMSet.add(method);
+                    aspectAfter.put(proxyMethod, aspectMSet);
+                }
+                if (afterThrowing != null) {
+                    //异常
+                    Method proxyMethod = getProxyMethod(afterThrowing.value(), beanClass);
+                    Set<Method> aspectMSet = aspectAfterThrowing.getOrDefault(proxyMethod, new HashSet<>());
+                    aspectMSet.add(method);
+                    aspectAfterThrowing.put(proxyMethod, aspectMSet);
+//                            ProxyFactory proxyFactory = new ProxyFactory(getBean(beanName));
+//                            Object proxy = proxyFactory.getProxyInstanceAfterThrowing(getProxyMethod(afterThrowing.value(), beanClass),
+//                                    getBean(method.getDeclaringClass()), method, null);
+//                            iocByType.put(beanClass, proxy);
+//                            iocByName.put(beanTypeAndName.get(beanClass), proxy);
+                }
+                if (afterReturning != null) {
+                    //返回
+                    Method proxyMethod = getProxyMethod(afterReturning.value(), beanClass);
+                    Set<Method> aspectMSet = aspectAfterReturning.getOrDefault(proxyMethod, new HashSet<>());
+                    aspectMSet.add(method);
+                    aspectAfterReturning.put(proxyMethod, aspectMSet);
+                }
+            }
+
+            for (Method declaredMethod : beanClass.getDeclaredMethods()) {
+
+                Set<Method> beforeMethodSet = aspectBefore.getOrDefault(declaredMethod, new HashSet<>());
+                List<Method> beforeMethods = new LinkedList<>(beforeMethodSet);
+                List<Object> beforeObject = new LinkedList<>();
+                for (Method beforeMethod : beforeMethods) {
+                    beforeObject.add(getBean(beforeMethod.getDeclaringClass()));
+                }
+
+                Set<Method> returningMethodSet = aspectAfterReturning.getOrDefault(declaredMethod, new HashSet<>());
+                List<Method> returningMethods = new LinkedList<>(returningMethodSet);
+                List<Object> returningObject = new LinkedList<>();
+                for (Method returningMethod : returningMethods) {
+                    returningObject.add(getBean(returningMethod.getDeclaringClass()));
+                }
+
+                Set<Method> throwingMethodSet = aspectAfterThrowing.getOrDefault(declaredMethod, new HashSet<>());
+                List<Method> throwingMethods = new LinkedList<>(throwingMethodSet);
+                List<Object> throwingObject = new LinkedList<>();
+                for (Method throwingMethod : throwingMethods) {
+                    throwingObject.add(getBean(throwingMethod.getDeclaringClass()));
+                }
+
+                Set<Method> afterMethodSet = aspectAfter.getOrDefault(declaredMethod, new HashSet<>());
+                List<Method> afterMethods = new LinkedList<>(afterMethodSet);
+                List<Object> afterObject = new LinkedList<>();
+                for (Method afterMethod : afterMethods) {
+                    afterObject.add(getBean(afterMethod.getDeclaringClass()));
+                }
+
+                if (beforeMethods.size() != 0 || returningMethods.size() != 0 ||
+                        throwingMethods.size() != 0 || afterMethods.size() != 0) {
+                    ProxyFactory proxyFactory = new ProxyFactory(getBean(beanName));
+                    Object proxy = proxyFactory.getProxyInstance(declaredMethod, beforeMethods, beforeObject,
+                            afterMethods, afterObject, throwingMethods, throwingObject,
+                            returningMethods, returningObject);
+                    iocByType.put(beanClass, proxy);
+                    iocByName.put(beanTypeAndName.get(beanClass), proxy);
+                }
+            }
+        }*/
     }
 
     /**
@@ -261,25 +306,25 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
                 if (haveNotWired(field.getType())) {     //判断这个域是否有还未注入的对象，如果有，先为其注入
                     Class<?> type = field.getType();
                     if (type.isInterface()) {
-                        //type = getBean(type).getClass();
                         type = getImplClassByInterface(type);
                     }
                     autowireObject(allBeansByType.get(type));
+                    // autowireObject(getBean(type));    此处如果直接递归调自己用getBean(type)来注入
+                    // 假如type对应的是非单例模式的bean，那在getBean中会创建一次bean，但未加入IOC容器，
+                    // 在后面field.set(object, getBean(field.getType())); 或者field.set(object, getBean(qualifier));
+                    // 时又会重复创建
                 }
                 //对标注了@Autowired的域进行赋值操作
-                //Method declaredMethod = getSetMethod(beanClass, field);
-                if (annotation1 != null) {
-                    //标注了Qualifier的域，有自己的beanName
+                if (annotation1 != null) {      //标注了Qualifier的域，有自己的beanName
                     String qualifier = annotation1.value();
                     try {
                         field.setAccessible(true);
+                        //非单例的注入方式，因为非单例创建的bean不会加入到IOC容器中，所以此处直接使用object而不使用getBean,可以避免循环创建
                         field.set(object, getBean(qualifier));
-                        //declaredMethod.invoke(object,getBean(qualifier));
                     } catch (DuplicateBeanNameException | NoSuchBeanException | IllegalAccessException | DataConversionException | DuplicateBeanClassException | NoSuchMethodException | ClassNotFoundException e) {
                         e.printStackTrace();
                     }
-                } else {
-                    //by Type
+                } else {        //by Type
                     try {
                         field.setAccessible(true);
                         field.set(object, getBean(field.getType()));
@@ -287,40 +332,200 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
                         e.printStackTrace();
                     }
                 }
-                if (aspect.containsKey(object.getClass())) {         //判断这个注入的对象是否需要被代理，如果需要则代理
+                /*if (aspect.containsKey(beanClass)) {         //判断这个注入的对象是否需要被代理，如果需要则代理
                     Set<Method> methods = aspect.get(object.getClass());
+                    Map<Method, Set<Method>> aspectBefore = new HashMap<>();
+                    Map<Method, Set<Method>> aspectAfter = new HashMap<>();
+                    Map<Method, Set<Method>> aspectAfterThrowing = new HashMap<>();
+                    Map<Method, Set<Method>> aspectAfterReturning = new HashMap<>();
                     for (Method method : methods) {
                         Before before = method.getAnnotation(Before.class);
                         After after = method.getAnnotation(After.class);
                         AfterThrowing afterThrowing = method.getAnnotation(AfterThrowing.class);
+                        AfterReturning afterReturning = method.getAnnotation(AfterReturning.class);
                         if (before != null) {
                             //前置
-                            ProxyFactory proxyFactory = new ProxyFactory(getBean(object.getClass()));
-                            Object proxy = proxyFactory.getProxyInstanceBefore(getProxyMethod(before.value(), beanClass),
-                                    getBean(method.getDeclaringClass()), method, null);
-                            iocByType.put(beanClass, proxy);
-                            iocByName.put(beanTypeAndName.get(beanClass), proxy);
+                            Method proxyMethod = getProxyMethod(before.value(), beanClass);
+                            Set<Method> aspectMSet = aspectBefore.getOrDefault(proxyMethod, new HashSet<>());
+                            aspectMSet.add(method);
+                            aspectBefore.put(proxyMethod, aspectMSet);
                         }
                         if (after != null) {
                             //后置
-                            ProxyFactory proxyFactory = new ProxyFactory(getBean(object.getClass()));
-                            Object proxy = proxyFactory.getProxyInstanceAfter(getProxyMethod(after.value(), beanClass),
-                                    getBean(method.getDeclaringClass()), method, null);
-                            iocByType.put(beanClass, proxy);
-                            iocByName.put(beanTypeAndName.get(beanClass), proxy);
+                            Method proxyMethod = getProxyMethod(after.value(), beanClass);
+                            Set<Method> aspectMSet = aspectAfter.getOrDefault(proxyMethod, new HashSet<>());
+                            aspectMSet.add(method);
+                            aspectAfter.put(proxyMethod, aspectMSet);
                         }
                         if (afterThrowing != null) {
                             //异常
-                            ProxyFactory proxyFactory = new ProxyFactory(getBean(object.getClass()));
-                            Object proxy = proxyFactory.getProxyInstanceAfterThrowing(getProxyMethod(afterThrowing.value(), beanClass),
-                                    getBean(method.getDeclaringClass()), method, null);
+                            Method proxyMethod = getProxyMethod(afterThrowing.value(), beanClass);
+                            Set<Method> aspectMSet = aspectAfterThrowing.getOrDefault(proxyMethod, new HashSet<>());
+                            aspectMSet.add(method);
+                            aspectAfterThrowing.put(proxyMethod, aspectMSet);
+                        }
+                        if (afterReturning != null) {
+                            //返回
+                            Method proxyMethod = getProxyMethod(afterReturning.value(), beanClass);
+                            Set<Method> aspectMSet = aspectAfterReturning.getOrDefault(proxyMethod, new HashSet<>());
+                            aspectMSet.add(method);
+                            aspectAfterReturning.put(proxyMethod, aspectMSet);
+                        }
+                    }
+
+                    for (Method declaredMethod : beanClass.getDeclaredMethods()) {
+
+                        Set<Method> beforeMethodSet = aspectBefore.getOrDefault(declaredMethod, new HashSet<>());
+                        List<Method> beforeMethods = new LinkedList<>(beforeMethodSet);
+                        List<Object> beforeObject = new LinkedList<>();
+                        for (Method beforeMethod : beforeMethods) {
+                            beforeObject.add(getBean(beforeMethod.getDeclaringClass()));
+                        }
+
+                        Set<Method> returningMethodSet = aspectAfterReturning.getOrDefault(declaredMethod, new HashSet<>());
+                        List<Method> returningMethods = new LinkedList<>(returningMethodSet);
+                        List<Object> returningObject = new LinkedList<>();
+                        for (Method returningMethod : returningMethods) {
+                            returningObject.add(getBean(returningMethod.getDeclaringClass()));
+                        }
+
+                        Set<Method> throwingMethodSet = aspectAfterThrowing.getOrDefault(declaredMethod, new HashSet<>());
+                        List<Method> throwingMethods = new LinkedList<>(throwingMethodSet);
+                        List<Object> throwingObject = new LinkedList<>();
+                        for (Method throwingMethod : throwingMethods) {
+                            throwingObject.add(getBean(throwingMethod.getDeclaringClass()));
+                        }
+
+                        Set<Method> afterMethodSet = aspectAfter.getOrDefault(declaredMethod, new HashSet<>());
+                        List<Method> afterMethods = new LinkedList<>(afterMethodSet);
+                        List<Object> afterObject = new LinkedList<>();
+                        for (Method afterMethod : afterMethods) {
+                            afterObject.add(getBean(afterMethod.getDeclaringClass()));
+                        }
+
+                        if (beforeMethods.size() != 0 || returningMethods.size() != 0 ||
+                                throwingMethods.size() != 0 || afterMethods.size() != 0) {
+                            ProxyFactory proxyFactory = new ProxyFactory(getBean(beanClass));
+                            Object proxy = proxyFactory.getProxyInstance(declaredMethod, beforeMethods, beforeObject,
+                                    afterMethods, afterObject, throwingMethods, throwingObject,
+                                    returningMethods, returningObject);
                             iocByType.put(beanClass, proxy);
                             iocByName.put(beanTypeAndName.get(beanClass), proxy);
                         }
                     }
+                }*/
+            }
+        }
+        setProxy(beanClass);        // 设置代理（内部会先检查是否需要代理）
+    }
+
+    private void setProxy(Class<?> clazz) throws NoSuchMethodException, ClassNotFoundException, NoSuchBeanException, DuplicateBeanNameException, DuplicateBeanClassException, IllegalAccessException, DataConversionException {
+        if (aspect.containsKey(clazz)) {         //判断这个注入的对象是否需要被代理，如果需要则代理
+            Set<Method> methods = aspect.get(clazz);
+            Map<Method, Set<Method>> aspectBefore = new HashMap<>();
+            Map<Method, Set<Method>> aspectAfter = new HashMap<>();
+            Map<Method, Set<Method>> aspectAfterThrowing = new HashMap<>();
+            Map<Method, Set<Method>> aspectAfterReturning = new HashMap<>();
+            for (Method method : methods) {
+                Before before = method.getAnnotation(Before.class);
+                After after = method.getAnnotation(After.class);
+                AfterThrowing afterThrowing = method.getAnnotation(AfterThrowing.class);
+                AfterReturning afterReturning = method.getAnnotation(AfterReturning.class);
+                if (before != null) addMethodsForAspect(before.value(), clazz, method, aspectBefore);
+                if (after != null)  addMethodsForAspect(after.value(), clazz, method, aspectAfter);
+                if (afterThrowing != null)  addMethodsForAspect(afterThrowing.value(), clazz, method, aspectAfterThrowing);
+                if (afterReturning != null) addMethodsForAspect(afterReturning.value(), clazz, method, aspectAfterReturning);
+                /*if (before != null) {
+                    //前置
+                    Method proxyMethod = getProxyMethod(before.value(), clazz);
+                    Set<Method> aspectMSet = aspectBefore.getOrDefault(proxyMethod, new HashSet<>());
+                    aspectMSet.add(method);
+                    aspectBefore.put(proxyMethod, aspectMSet);
+                }
+                if (after != null) {
+                    //后置
+                    Method proxyMethod = getProxyMethod(after.value(), clazz);
+                    Set<Method> aspectMSet = aspectAfter.getOrDefault(proxyMethod, new HashSet<>());
+                    aspectMSet.add(method);
+                    aspectAfter.put(proxyMethod, aspectMSet);
+                }
+                if (afterThrowing != null) {
+                    //异常
+                    Method proxyMethod = getProxyMethod(afterThrowing.value(), clazz);
+                    Set<Method> aspectMSet = aspectAfterThrowing.getOrDefault(proxyMethod, new HashSet<>());
+                    aspectMSet.add(method);
+                    aspectAfterThrowing.put(proxyMethod, aspectMSet);
+                }
+                if (afterReturning != null) {
+                    //返回
+                    Method proxyMethod = getProxyMethod(afterReturning.value(), clazz);
+                    Set<Method> aspectMSet = aspectAfterReturning.getOrDefault(proxyMethod, new HashSet<>());
+                    aspectMSet.add(method);
+                    aspectAfterReturning.put(proxyMethod, aspectMSet);
+                }*/
+            }
+
+            for (Method declaredMethod : clazz.getDeclaredMethods()) {
+
+                List<Method> beforeMethods = new LinkedList<>(aspectBefore.getOrDefault(declaredMethod, new HashSet<>()));
+                List<Object> beforeObject = getObjByAspect(beforeMethods);
+
+                List<Method> returningMethods = new LinkedList<>(aspectAfterReturning.getOrDefault(declaredMethod, new HashSet<>()));
+                List<Object> returningObject = getObjByAspect(returningMethods);
+
+                List<Method> throwingMethods = new LinkedList<>(aspectAfterThrowing.getOrDefault(declaredMethod, new HashSet<>()));
+                List<Object> throwingObject = getObjByAspect(throwingMethods);
+
+                List<Method> afterMethods = new LinkedList<>(aspectAfter.getOrDefault(declaredMethod, new HashSet<>()));
+                List<Object> afterObject = getObjByAspect(afterMethods);
+
+                if (beforeMethods.size() != 0 || returningMethods.size() != 0 ||
+                        throwingMethods.size() != 0 || afterMethods.size() != 0) {
+                    ProxyFactory proxyFactory = new ProxyFactory(getBean(clazz));
+                    Object proxy = proxyFactory.getProxyInstance(declaredMethod, beforeMethods, beforeObject,
+                            afterMethods, afterObject, throwingMethods, throwingObject,
+                            returningMethods, returningObject);
+                    iocByType.put(clazz, proxy);
+                    iocByName.put(beanTypeAndName.get(clazz), proxy);
                 }
             }
         }
+    }
+
+    /**
+     * proxyMethod是被代理的方法（通过注解中的value和clazz获取），将所有要切它的方法加入到集合中再放入以它为key的map中
+     * @param value 为切面方法注解的value,表示切的哪个方法
+     * @param clazz 被代理方法的类
+     * @param method
+     * @param map
+     * @throws NoSuchMethodException
+     * @throws ClassNotFoundException
+     */
+    private void addMethodsForAspect(String value, Class<?> clazz, Method method, Map<Method, Set<Method>> map) throws NoSuchMethodException, ClassNotFoundException {
+        Method proxyMethod = getProxyMethod(value, clazz);
+        Set<Method> aspectMSet = map.getOrDefault(proxyMethod, new HashSet<>());
+        aspectMSet.add(method);
+        map.put(proxyMethod, aspectMSet);
+    }
+
+    /**
+     * 通过切面方法获得要执行此切面方法的切面类的对象
+     * @param methods
+     * @return
+     * @throws NoSuchMethodException
+     * @throws ClassNotFoundException
+     * @throws DuplicateBeanNameException
+     * @throws IllegalAccessException
+     * @throws DuplicateBeanClassException
+     * @throws NoSuchBeanException
+     * @throws DataConversionException
+     */
+    private List<Object> getObjByAspect(List<Method> methods) throws NoSuchMethodException, ClassNotFoundException, DuplicateBeanNameException, IllegalAccessException, DuplicateBeanClassException, NoSuchBeanException, DataConversionException {
+        List<Object> objects = new LinkedList<>();
+        for (Method method : methods) {
+            objects.add(getBean(method.getDeclaringClass()));
+        }
+        return objects;
     }
 
     /**
@@ -479,6 +684,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
                         Before before = method.getAnnotation(Before.class);
                         After after = method.getAnnotation(After.class);
                         AfterThrowing afterThrowing = method.getAnnotation(AfterThrowing.class);
+                        AfterReturning afterReturning = method.getAnnotation(AfterReturning.class);
                         if (before != null) {
                             keepAspectMethod(method, before.value());
                         }
@@ -487,6 +693,9 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
                         }
                         if (afterThrowing != null) {
                             keepAspectMethod(method, afterThrowing.value());
+                        }
+                        if (afterReturning != null) {
+                            keepAspectMethod(method, afterReturning.value());
                         }
                     }
                 }
@@ -609,7 +818,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
         } else {
             proxyMethod = aClass.getDeclaredMethod(methodName);
         }
-        return proxyMethod;
+        return proxyMethod;         //返回被代理的方法
     }
 
     /**
