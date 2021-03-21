@@ -1,6 +1,6 @@
 # Summer
 
-[![](https://img.shields.io/badge/Release-v1.1-orange)](https://github.com/vfdxvffd/Summer/releases/tag/v1.1) &nbsp;&nbsp;&nbsp;
+[![](https://img.shields.io/badge/Release-v1.2-orange)](https://github.com/vfdxvffd/Summer/releases/tag/v1.2) &nbsp;&nbsp;&nbsp;
 
 参考Spring框架实现一个简易类似的Java框架
 
@@ -9,6 +9,67 @@
 * IOC容器
 * AOP切面
 * 数据访问集成模块（JDBC、事务控制）
+
+## Version 1.2
+
+本次更新加入了一些新功能，修复了一些bug
+
+1. 更新功能：
+
+    - aop增加了一种切入方式，目前有以下切入方式
+
+        `@Before`、`@AfterReturning`、`@AfterThrowing`、`@After`
+
+        以上对应而切入时机如下：
+
+        ```java
+        try {
+            @Before
+            fun.invoke();
+            @AfterReturning
+        } catch (Throwable t) {
+            @AfterThrowing
+        } finally {
+            @After
+        }
+        ```
+
+    - 切面方法可以通过`JoinPoint`类获取被切的方法的参数、方法名、返回值类型。对于`@AfterReturning`的切入方式可以获取返回值，类型为`Object`，而`@AfterThrowing`可以获取抛出的异常，类型为`Throwable`。
+
+2. 修复了重复代理的bug
+
+    > bug描述：当一个待注入bean中有超过一个需要注入的域（带有注解@Autowired且未完成赋值），如果对它中的方法进行切面，这时切面方法会重复执行
+
+    bug重现：
+
+    ```java
+    @Controller
+    public class StudentControllerImpl implements StudentController {
+        @Autowired
+        private StudentService studentService;
+        @Autowired
+        private BookService bookService;
+    	
+        public void fun() {
+            //被切的方法
+        }
+    }
+    ```
+
+    如果对以上的`fun`方法进行切面，切面方法会重复执行。
+
+    **分析：**
+
+    ```java
+    for (Field field : declaredFields) {
+        ...			//一些检查和注入的代码
+        setProxy(beanClass);        // 设置代理（内部会先检查是否需要代理）
+    }
+    ```
+
+    ​		由上述代码可以看出是由于将设置代理的方法写到了对域遍历的for循环中，而导致对每一个域检查的时候都会设置一次代理。
+
+    ​		修改时只需将设置代理的方法提出，每个class只需检查执行一次即可。
 
 ## Version 1.1
 
