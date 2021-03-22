@@ -10,6 +10,8 @@ import com.vfd.summer.ioc.exception.DuplicateBeanClassException;
 import com.vfd.summer.ioc.exception.DuplicateBeanNameException;
 import com.vfd.summer.ioc.exception.NoSuchBeanException;
 import com.vfd.summer.ioc.tools.MyTools;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.*;
 import java.util.*;
@@ -35,8 +37,10 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
     //private final Set<Class<?>> aspect = new HashSet<>();
     //保存bean的type和name的一一对应关系，方面切面修改为代理类
     private final Map<Class<?>, String> beanTypeAndName = new HashMap<>();
-
+    //保存所有类和切它的切面方法的集合
     private final Map<Class<?>, Set<Method>> aspect = new HashMap<>();
+
+    private final Logger logger = LoggerFactory.getLogger(getClass());
 
     /**
      * 加载的时候就扫描并创建对象
@@ -49,7 +53,8 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
         createObject(beanDefinitions);
         //自动装载并将切面类中的方法横切目标方法并装入ioc容器中
         autowireObject(beanDefinitions);
-        //setProxyObj();
+        //容器初始化日志
+        logger.info("IOC容器初始化完成");
     }
 
     /**
@@ -69,6 +74,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
                 autowireObject(beanDefinition);
             }
         }
+        logger.info("对于单例模式且非懒加载模式的bean自动注入完成");
     }
 
     /**
@@ -489,6 +495,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
                     iocByName.put(beanTypeAndName.get(clazz), proxy);
                 }
             }
+            logger.debug("class:{}代理对象设置完成",clazz);
         }
     }
 
@@ -542,6 +549,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
                 createObject(beanDefinition);
             }
         }
+        logger.info("所有单例模式且非懒加载模式的bean创建完成");
     }
 
     /**
@@ -733,6 +741,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
                     beanTypeAndName.put(clazz, beanName);
                 }
             }
+            logger.info("扫描package:{}完成",basePackage);
         }
         return beanDefinitions;
     }
