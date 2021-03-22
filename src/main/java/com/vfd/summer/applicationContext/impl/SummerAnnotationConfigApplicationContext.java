@@ -495,7 +495,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
                     iocByName.put(beanTypeAndName.get(clazz), proxy);
                 }
             }
-            logger.debug("class:{}代理对象设置完成",clazz);
+            logger.debug("class:[{}]代理对象设置完成",clazz);
         }
     }
 
@@ -686,7 +686,8 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
             for (Class<?> clazz : classes) {
                 //2、遍历这些类，找到添加了注解的类
                 //先将带有Aspect注解的类保存起来
-                if (clazz.getAnnotation(Aspect.class) != null) {
+                Aspect aspect = clazz.getAnnotation(Aspect.class);
+                if (aspect != null) {
                     Method[] methods = clazz.getDeclaredMethods();
                     for (Method method : methods) {
                         Before before = method.getAnnotation(Before.class);
@@ -716,6 +717,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
                 if (repository != null)    beanName = repository.value();
                 if (service != null)    beanName = service.value();
                 if (controller != null)    beanName = controller.value();
+                if (aspect != null)    beanName = aspect.value();
                 if (beanName != null) {      //如果此类带了@Component、@Repository、@Service、@Controller注解之一
                     if ("".equals(beanName)) {    //没有添加beanName则默认是类的首字母小写
                         //获取类名首字母小写
@@ -741,7 +743,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
                     beanTypeAndName.put(clazz, beanName);
                 }
             }
-            logger.info("扫描package:{}完成",basePackage);
+            logger.info("扫描package:[{}]完成",basePackage);
         }
         return beanDefinitions;
     }
