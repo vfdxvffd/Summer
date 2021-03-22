@@ -1,5 +1,13 @@
 # Summer更新日志
 
+## Version 1.3
+
+- 本次更新引入了日志依赖，增加了对ioc构造过程中的日志记录
+
+![](/home/vfdxvffd/github/Summer/img/2021-03-22_15-12.png)
+
+- 对于标注了`@Aspect`注解的类自动将其加入IOC容器中，不用再重复标注注解
+
 ## Version 1.2
 
 本次更新加入了一些新功能，修复了一些bug
