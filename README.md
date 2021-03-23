@@ -2,13 +2,15 @@
 
 [![](https://img.shields.io/badge/Release-v1.3-orange)](https://github.com/vfdxvffd/Summer/releases/tag/v1.3) &nbsp;&nbsp;&nbsp;[![](https://img.shields.io/badge/%E4%BD%BF%E7%94%A8%E6%96%87%E6%A1%A3-Summer-informational)](Summer使用文档.md) &nbsp;&nbsp;&nbsp;[![](https://img.shields.io/badge/%E6%9B%B4%E6%96%B0%E6%97%A5%E5%BF%97-log-important)](Summer更新日志.md)
 
-参考Spring框架实现一个简易类似的Java框架
+​		参考`Spring`框架实现一个简易类似的`Java`框架。计划陆续实现`IOC`、`AOP`、以及`数据访问模块和事务控制模块`。项目持续维护中...欢迎Star！Thanks~~~
 
 项目计划：
 
-* IOC容器
-* AOP切面
-* 数据访问集成模块（JDBC、事务控制）
+- [x] IOC容器
+- [x] AOP切面
+- [ ] 数据访问集成模块（JDBC、事务控制）
+
+​		关于对IOC和AOP功能`为什么要使用（why）`，以及`应该如何使用（how）`请移步[使用文档](Summer使用文档.md)，要了解每个版本更新的内容请移步[更新日志](Summer更新日志.md)。
 
 ## 运行环境
 
