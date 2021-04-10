@@ -18,7 +18,7 @@ JDK 8
 
 ## 如何使用
 
-​		下载最新的jar包[![](https://img.shields.io/badge/Release-v1.3-orange)](https://github.com/vfdxvffd/Summer/releases/tag/v1.3) ，将其导入项目中，即可使用，目录结构如下图，蓝色框内为`summer`的核心代码，`ch`包下为`logback`日志依赖，`net.sf.cglib`下为cglib动态代理的依赖，`org.slf4j`下为`slf4j`的日志门面依赖。
+​		下载最新的jar包[![](https://img.shields.io/badge/Release-v1.4-orange)](https://github.com/vfdxvffd/Summer/releases/tag/v1.4) ，将其导入项目中，即可使用，目录结构如下图，蓝色框内为`summer`的核心代码，`ch`包下为`logback`日志依赖，`net.sf.cglib`下为cglib动态代理的依赖，`org.slf4j`下为`slf4j`的日志门面依赖。
 
 ![](img/2021-04-11_00-45.png)
 
@@ -38,7 +38,7 @@ JDK 8
 
 - 本次更新引入了日志依赖，增加了对ioc构造过程中的日志记录
 
-![](img/2021-03-22_15-12.png)
+    ![](img/2021-03-22_15-12.png)
 
 - 对于标注了`@Aspect`注解的类自动将其加入IOC容器中，不用再重复标注注解
 
