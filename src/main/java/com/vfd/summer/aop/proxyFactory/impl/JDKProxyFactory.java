@@ -1,18 +1,15 @@
-package com.vfd.summer.aop;
+package com.vfd.summer.aop.proxyFactory.impl;
 
-import com.vfd.summer.aop.bean.JoinPoint;
 import com.vfd.summer.aop.proxyFactory.ProxyFactory;
 
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.lang.reflect.Parameter;
 import java.lang.reflect.Proxy;
 import java.util.*;
 
 /**
  * @PackageName: com.vfd.summer.aop
  * @ClassName: ProxyFactory
- * @Description: 代理工厂，生产代理对象，根据切面方法执行的时机生产代理对象
+ * @Description: JDK默认的动态代理，需要实现接口，故可以使用接口类型的引用来接受代理对象（实现类）
  * @author: vfdxvffd
  * @date: 2021/3/18 上午10:52
  */
@@ -38,9 +35,10 @@ public class JDKProxyFactory implements ProxyFactory {
         return Proxy.newProxyInstance(realObj.getClass().getClassLoader(),
                 realObj.getClass().getInterfaces(),
                 (proxy, method, args) -> {
+                    Object result = null;
                     if (methodBeProxy.getName().equals(method.getName()) &&
                             Arrays.equals(methodBeProxy.getParameterTypes(), method.getParameterTypes())) {
-                        Object result = null;
+                        // 需要保证当前的方法确实被某个切面类的切面方法横切了
                         try {
                             invokeMethods(beforeAspect, before, method, args, null, null);
                             result = method.invoke(realObj, args);
@@ -53,35 +51,11 @@ public class JDKProxyFactory implements ProxyFactory {
                         } finally {
                             invokeMethods(afterAspect, after, method, args, null, null);
                         }
-                        return result;
                     } else {
-                        return method.invoke(realObj, args);
+                        result = method.invoke(realObj, args);
                     }
+                    return result;
                 });
-    }
-
-    private void invokeMethods(List<Object> aspect, List<Method> methods, Method realMethod,
-                               Object[] realArgs, Throwable t, Object o) throws IllegalAccessException, InvocationTargetException {
-        if (methods != null && methods.size() > 0) {
-            Iterator<Method> methodIterator = methods.iterator();
-            Iterator<Object> objectIterator = aspect.iterator();
-            while (methodIterator.hasNext() && objectIterator.hasNext()) {
-                Method method1 = methodIterator.next();
-                Object object = objectIterator.next();
-                Parameter[] parameters = method1.getParameters();
-                Object[] args = new Object[parameters.length];
-                for (int i = 0; i < parameters.length; i++) {
-                    if (parameters[i].getType().equals(JoinPoint.class)) {
-                        args[i] = new JoinPoint(realMethod.getName(), realArgs, realMethod.getReturnType());
-                    } else if (parameters[i].getType().equals(Throwable.class)) {
-                        args[i] = t;
-                    } else if (parameters[i].getType().equals(Object.class)) {
-                        args[i] = o;
-                    }
-                }
-                method1.invoke(object, args);
-            }
-        }
     }
 
 //    public Object getProxyInstanceBefore(Method proxyMethod, Object aspect, Method beforeMethod, Object[] beforeArgs) {
