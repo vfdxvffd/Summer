@@ -1,6 +1,7 @@
 package com.vfd.summer.aop;
 
 import com.vfd.summer.aop.bean.JoinPoint;
+import com.vfd.summer.aop.proxyFactory.ProxyFactory;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -15,11 +16,11 @@ import java.util.*;
  * @author: vfdxvffd
  * @date: 2021/3/18 上午10:52
  */
-public class ProxyFactory {
+public class JDKProxyFactory implements ProxyFactory {
 
     private final Object realObj;
 
-    public ProxyFactory(Object realObj) {
+    public JDKProxyFactory(Object realObj) {
         this.realObj = realObj;
     }
 
@@ -28,6 +29,7 @@ public class ProxyFactory {
      * @param methodBeProxy 被代理的方法
      * @return
      */
+    @Override
     public Object getProxyInstance(Method methodBeProxy,
                                    List<Method> before, List<Object> beforeAspect,
                                    List<Method> after, List<Object> afterAspect,
