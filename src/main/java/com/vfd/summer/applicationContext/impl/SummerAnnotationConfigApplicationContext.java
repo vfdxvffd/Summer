@@ -1,7 +1,9 @@
 package com.vfd.summer.applicationContext.impl;
 
-import com.vfd.summer.aop.ProxyFactory;
+import com.vfd.summer.aop.proxyFactory.impl.CGLibProxyFactory;
+import com.vfd.summer.aop.proxyFactory.impl.JDKProxyFactory;
 import com.vfd.summer.aop.annotation.*;
+import com.vfd.summer.aop.proxyFactory.ProxyFactory;
 import com.vfd.summer.applicationContext.ApplicationContext;
 import com.vfd.summer.ioc.annotation.*;
 import com.vfd.summer.ioc.bean.BeanDefinition;
@@ -98,6 +100,9 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
         if (beanClass == null) {
             return true;
         }
+        if (Proxy.isProxyClass(beanClass)) {
+            return false;
+        }
         if (!allBeansByType.get(beanClass).getSingleton()) {
             //对于非单例
             return true;
@@ -105,12 +110,15 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
         if (Proxy.isProxyClass(getBean(beanClass).getClass())/*iocByType.get(beanClass).getClass())*/) {
             return false;
         }
+        if (aspect.containsKey(beanClass)) {    //对于需要代理但还没有代理的对象则视为没有完全注入
+            return true;
+        }
         Field[] declaredFields = beanClass.getDeclaredFields();
         for (Field field : declaredFields) {
             Autowired autowired = field.getAnnotation(Autowired.class);
             field.setAccessible(true);
             Object o = field.get(getBean(beanClass));
-            if (autowired != null && o == null) {
+            if ((autowired != null && o == null)) {
                 return true;
             }
         }
@@ -300,10 +308,10 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
      * @throws DuplicateBeanClassException
      */
     private void autowireObject (Object object) throws NoSuchMethodException, IllegalAccessException, ClassNotFoundException, DataConversionException, DuplicateBeanNameException, NoSuchBeanException, DuplicateBeanClassException {
-        if (!haveNotWired(object.getClass())) {
+        Class<?> beanClass = object.getClass();
+        if (!haveNotWired(beanClass)) {
             return;
         }
-        Class<?> beanClass = object.getClass();
         Field[] declaredFields = beanClass.getDeclaredFields();
         for (Field field : declaredFields) {
             Autowired annotation = field.getAnnotation(Autowired.class);
@@ -425,8 +433,10 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
         setProxy(beanClass);        // 设置代理（内部会先检查是否需要代理）
     }
 
+    @SuppressWarnings("all")
     private void setProxy(Class<?> clazz) throws NoSuchMethodException, ClassNotFoundException, NoSuchBeanException, DuplicateBeanNameException, DuplicateBeanClassException, IllegalAccessException, DataConversionException {
         if (aspect.containsKey(clazz)) {         //判断这个注入的对象是否需要被代理，如果需要则代理
+            boolean whichProxy;
             Set<Method> methods = aspect.get(clazz);
             Map<Method, Set<Method>> aspectBefore = new HashMap<>();
             Map<Method, Set<Method>> aspectAfter = new HashMap<>();
@@ -487,15 +497,25 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
 
                 if (beforeMethods.size() != 0 || returningMethods.size() != 0 ||
                         throwingMethods.size() != 0 || afterMethods.size() != 0) {
-                    ProxyFactory proxyFactory = new ProxyFactory(getBean(clazz));
-                    Object proxy = proxyFactory.getProxyInstance(declaredMethod, beforeMethods, beforeObject,
+                    Object proxy;
+                    ProxyFactory proxyFactory;
+                    //final Object o = getBean(clazz);
+                    if (/*o.getClass()*/clazz.getInterfaces().length == 0) {     //若没有实现接口则采用cglib实现动态代理
+                        proxyFactory = new CGLibProxyFactory(clazz);
+                        whichProxy = true;
+                    } else {
+                        proxyFactory = new JDKProxyFactory(getBean(clazz));
+                        whichProxy = false;
+                    }
+                    proxy = proxyFactory.getProxyInstance(declaredMethod, beforeMethods, beforeObject,
                             afterMethods, afterObject, throwingMethods, throwingObject,
                             returningMethods, returningObject);
                     iocByType.put(clazz, proxy);
                     iocByName.put(beanTypeAndName.get(clazz), proxy);
+                    String proxyFunction = whichProxy ? "CGLib":"JDK";
+                    logger.debug("class:[{}]代理对象设置完成，采用的代理方式为：{}",clazz,proxyFunction);
                 }
             }
-            logger.debug("class:[{}]代理对象设置完成",clazz);
         }
     }
 
@@ -608,7 +628,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
      * @throws DataConversionException
      */
     private Object convertVal(String value, Field field) throws DataConversionException {
-        Object val = null;
+        Object val;
         switch (field.getType().getName()) {
             case "int":
             case "java.lang.Integer":
@@ -823,7 +843,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
                 argType[i] = Class.forName(args[i]);
             }
         }
-        Method proxyMethod = null;
+        Method proxyMethod;
         if (!"".equals(argStr)) {
             proxyMethod = aClass.getDeclaredMethod(methodName, argType);
         } else {
@@ -882,6 +902,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
      * @throws IllegalAccessException
      * @throws ClassNotFoundException
      */
+    @SuppressWarnings("all")
     @Override
     public <T> T getBean(Class<T> beanType) throws NoSuchBeanException, DataConversionException, DuplicateBeanClassException, DuplicateBeanNameException, NoSuchMethodException, IllegalAccessException, ClassNotFoundException {
         Object o = iocByType.getOrDefault(beanType, null);
