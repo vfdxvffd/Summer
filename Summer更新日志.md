@@ -1,5 +1,114 @@
 # Summer更新日志
 
+## Version 1.4
+
+本次更新加入了新功能，修改了一个已知的bug
+
+- 本次更新引入`CGLib`依赖，增加动态代理的方式，对于实现了接口的方法采用`JDK`动态代理来实现切面功能，对于没有实现接口的类采用`CGLib`来实现切面。
+
+    ![](/home/vfdxvffd/github/Summer/img/2021-04-11_00-39.png)
+
+- 修改bug，之前版本中的`判断当前类是否已经完成了实例对象全部的创建注入工作`的方法，判断没有包含所有情况。
+
+    > bug描述：对于一个没有任何域`且`需要代理的对象，进行注入工作的时候会由于没有域需要注入，从而直接判断其已经完成注入，而跳过了代理阶段。
+
+    bug重现：
+
+    ```java
+    @Service
+    public class FileService {
+    
+        public void getFile() {
+            System.out.println("already get file");
+        }
+    }
+    ```
+
+    ```java
+    @Before("test.testnointerface.FileService.getFile()")
+    public void testNoInterface() {
+        System.out.println("isOk???");
+    }
+    ```
+
+    对于上述没有一个域的类`FileService`，如果直接去对它进行切面处理的话，会由于下面这个`检查的是否完全完成注入`的方法的判断错误，而直接认为它已经完成注入，从而跳过代理的阶段。
+
+    ```java
+    private boolean haveNotWired (Class<?> beanClass) {
+        if (beanClass.isInterface()) {          //如果是接口就要去IOC容器中找它的实现类
+            beanClass = getImplClassByInterface(beanClass);
+        }
+        if (beanClass == null) {
+            return true;
+        }
+        if (!allBeansByType.get(beanClass).getSingleton()) {
+            //对于非单例
+            return true;
+        }
+        if (Proxy.isProxyClass(getBean(beanClass).getClass()) {
+            return false;
+        }
+        Field[] declaredFields = beanClass.getDeclaredFields();
+        for (Field field : declaredFields) {
+            Autowired autowired = field.getAnnotation(Autowired.class);
+            field.setAccessible(true);
+            Object o = field.get(getBean(beanClass));
+            if (autowired != null && o == null) {
+                return true;
+            }
+        }
+        return false;
+    }
+    ```
+
+    而对于下面的注入方法，判断完全注入后直接返回，而没有进行下面的代理工作
+
+    ```java
+    private void autowireObject (Object object) {
+        if (!haveNotWired(object.getClass())) {
+            return;
+        }
+        ... /// 这里忽略一段代码
+        setProxy(beanClass);        // 设置代理（内部会先检查是否需要代理）
+    }
+    ```
+
+    **bug修改办法就是修改判断是否完全注入的函数，对于需要代理但还没有代理的对象则视为没有完全注入**
+
+    ```java
+    private boolean haveNotWired (Class<?> beanClass) {
+        if (beanClass.isInterface()) {          //如果是接口就要去IOC容器中找它的实现类
+            beanClass = getImplClassByInterface(beanClass);
+        }
+        if (beanClass == null) {
+            return true;
+        }
+        if (Proxy.isProxyClass(beanClass)) {
+            return false;
+        }
+        if (!allBeansByType.get(beanClass).getSingleton()) {
+            //对于非单例
+            return true;
+        }
+        if (Proxy.isProxyClass(getBean(beanClass).getClass())) {
+            return false;
+        }
+        if (aspect.containsKey(beanClass)) {    //对于需要代理但还没有代理的对象则视为没有完全注入
+            return true;
+        }
+        Field[] declaredFields = beanClass.getDeclaredFields();
+        for (Field field : declaredFields) {
+            Autowired autowired = field.getAnnotation(Autowired.class);
+            field.setAccessible(true);
+            Object o = field.get(getBean(beanClass));
+            if ((autowired != null && o == null)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    ```
+
 ## Version 1.3
 
 - 本次更新引入了日志依赖，增加了对ioc构造过程中的日志记录

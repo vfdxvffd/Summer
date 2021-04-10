@@ -1,6 +1,6 @@
 # Summer
 
-[![](https://img.shields.io/badge/Release-v1.3-orange)](https://github.com/vfdxvffd/Summer/releases/tag/v1.3) &nbsp;&nbsp;&nbsp;[![](https://img.shields.io/badge/%E4%BD%BF%E7%94%A8%E6%96%87%E6%A1%A3-Summer-informational)](Summer使用文档.md) &nbsp;&nbsp;&nbsp;[![](https://img.shields.io/badge/%E6%9B%B4%E6%96%B0%E6%97%A5%E5%BF%97-log-important)](Summer更新日志.md)
+[![](https://img.shields.io/badge/Release-v1.4-orange)](https://github.com/vfdxvffd/Summer/releases/tag/v1.4) &nbsp;&nbsp;&nbsp;[![](https://img.shields.io/badge/%E4%BD%BF%E7%94%A8%E6%96%87%E6%A1%A3-Summer-informational)](Summer使用文档.md) &nbsp;&nbsp;&nbsp;[![](https://img.shields.io/badge/%E6%9B%B4%E6%96%B0%E6%97%A5%E5%BF%97-log-important)](Summer更新日志.md)
 
 ​		参考`Spring`框架实现一个简易类似的`Java`框架。计划陆续实现`IOC`、`AOP`、以及`数据访问模块和事务控制模块`。项目持续维护中...欢迎Star！Thanks~~~
 
@@ -18,9 +18,21 @@ JDK 8
 
 ## 如何使用
 
-​		下载最新的jar包[![](https://img.shields.io/badge/Release-v1.3-orange)](https://github.com/vfdxvffd/Summer/releases/tag/v1.3) ，将其导入项目中，即可使用，目录结构如下图，红色框内为`summer`的核心代码，`ch`包下为`logback`日志依赖，`org.slf4j`下为`slf4j`的日志门面依赖。
+​		下载最新的jar包[![](https://img.shields.io/badge/Release-v1.3-orange)](https://github.com/vfdxvffd/Summer/releases/tag/v1.3) ，将其导入项目中，即可使用，目录结构如下图，蓝色框内为`summer`的核心代码，`ch`包下为`logback`日志依赖，`net.sf.cglib`下为cglib动态代理的依赖，`org.slf4j`下为`slf4j`的日志门面依赖。
 
-![](img/2021-03-22_15-06.png)
+![](img/2021-04-11_00-45.png)
+
+## Version 1.4
+
+本次更新加入了新功能，修改了一个已知的bug
+
+- 本次更新引入`CGLib`依赖，增加动态代理的方式，对于实现了接口的方法采用`JDK`动态代理来实现切面功能，对于没有实现接口的类采用`CGLib`来实现切面。
+
+    ![](img/2021-04-11_00-39.png)
+
+- 修改bug，之前版本中的`判断当前类是否已经完成了实例对象全部的创建注入工作`的方法，判断没有包含所有情况。
+
+    > bug描述：对于一个没有任何域`且`需要代理的对象，进行注入工作的时候会由于没有域需要注入，从而直接判断其已经完成注入，而跳过了代理阶段。
 
 ## Version 1.3
 
