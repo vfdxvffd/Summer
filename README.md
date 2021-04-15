@@ -20,7 +20,7 @@ JDK 8
 
 ​		下载最新的jar包[![](https://img.shields.io/badge/Release-v0.5-orange)](https://github.com/vfdxvffd/Summer/releases/tag/v0.5) ，将其导入项目中，即可使用，目录结构如下图，蓝色框内为`summer`的核心代码，`ch`包下为`logback`日志依赖，`net.sf.cglib`下为cglib动态代理的依赖，`org.slf4j`下为`slf4j`的日志门面依赖。
 
-![](img/2021-04-11_00-45.png)
+![](img/2021-04-15_18-32.png)
 
 ## Version 0.5(Pre-release)
 
