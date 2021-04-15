@@ -1,6 +1,6 @@
 # Summer
 
-[![](https://img.shields.io/badge/Release-v1.4-orange)](https://github.com/vfdxvffd/Summer/releases/tag/v1.4) &nbsp;&nbsp;&nbsp;[![](https://img.shields.io/badge/%E4%BD%BF%E7%94%A8%E6%96%87%E6%A1%A3-Summer-informational)](Summer使用文档.md) &nbsp;&nbsp;&nbsp;[![](https://img.shields.io/badge/%E6%9B%B4%E6%96%B0%E6%97%A5%E5%BF%97-log-important)](Summer更新日志.md)
+[![](https://img.shields.io/badge/Release-v0.5-orange)](https://github.com/vfdxvffd/Summer/releases/tag/v0.5) &nbsp;&nbsp;&nbsp;[![](https://img.shields.io/badge/%E4%BD%BF%E7%94%A8%E6%96%87%E6%A1%A3-Summer-informational)](Summer使用文档.md) &nbsp;&nbsp;&nbsp;[![](https://img.shields.io/badge/%E6%9B%B4%E6%96%B0%E6%97%A5%E5%BF%97-log-important)](Summer更新日志.md)
 
 ​		参考`Spring`框架实现一个简易类似的`Java`框架。计划陆续实现`IOC`、`AOP`、以及`数据访问模块和事务控制模块`。项目持续维护中...欢迎Star！Thanks~~~
 
@@ -18,11 +18,32 @@ JDK 8
 
 ## 如何使用
 
-​		下载最新的jar包[![](https://img.shields.io/badge/Release-v1.4-orange)](https://github.com/vfdxvffd/Summer/releases/tag/v1.4) ，将其导入项目中，即可使用，目录结构如下图，蓝色框内为`summer`的核心代码，`ch`包下为`logback`日志依赖，`net.sf.cglib`下为cglib动态代理的依赖，`org.slf4j`下为`slf4j`的日志门面依赖。
+​		下载最新的jar包[![](https://img.shields.io/badge/Release-v0.5-orange)](https://github.com/vfdxvffd/Summer/releases/tag/v0.5) ，将其导入项目中，即可使用，目录结构如下图，蓝色框内为`summer`的核心代码，`ch`包下为`logback`日志依赖，`net.sf.cglib`下为cglib动态代理的依赖，`org.slf4j`下为`slf4j`的日志门面依赖。
 
 ![](img/2021-04-11_00-45.png)
 
-## Version 1.4
+## Version 0.5(Pre-release)
+
+<center><b><font size = "6" color = "red">一次重大更新</font></b></center>
+
+>  bug描述：循环依赖的问题复现出来		
+
+​		因为之前`v0.1`更新中引入的一个解决bug的方法导致了这个重大的bug，这次通过设置二级缓存来解决`循环依赖`的问题，具体bug的产生原因详情可见[更新日志](Summer更新日志.md)，更新日志对这次bug的出现原因以及解决方法做了详细的说明。
+
+**bug解决：**
+
+​		针对目前掌握的代理方面的知识，对之前的做法做出一些调整。设置二级缓存，一级缓存一个（即真正的ioc容器），二级缓存两个，都是负责存放实例化但未初始化的对象，但一个是存放原对象，另一个负责存放代理对象，二级缓存的示意图如下：
+
+![](img/summerDoubleCache.svg)
+
+将ioc容器的构造过程分为四步来进行：
+
+1. 遍历包，找到所有需要被IOC管理的类，封装成`BeanDefinition`
+2. 根据第一步获取到的`BeanDefinition`实例化那些单例且非延迟加载的对象，并将其加入到二级缓存的`earlyRealObjects`中
+3. 对第二步得到的`earlyRealObjects`中的对象进行检查，看是否需要设置代理，如果需要则对其进行代理，并将代理对象加入到二级缓存中的`earlyProxyObjects`中（并不删除`earlyRealObjects`中对应的真正的对象）。
+4. 对第二步得到的`earlyRealObjects`中的对象进行注入工作（即开始进行初始化），检查每个对象的每个域，如果标注了`@Autowired`注解且值为`null`，则对其进行注入工作，现在一级缓存中查找，如果有直接取出为其注入，如果没有检查二级缓存的`earlyProxyObjects`，如果有则取出为其注入，如果没有则接着检查二级缓存的`earlyRealObjects`，找到后为其注入，此时如果还没有则说明这个域对应的bean是非单例（prototype）模式或者懒加载模式的，则为其实例化并设置代理（如果需要），并初始化，然后注入其中。如果是非ioc容器管理的域，则直接注入`null`，也可以考虑改为抛出异常给用户提示。
+
+## Version 0.4(Pre-release)
 
 本次更新加入了新功能，修改了一个已知的bug
 
@@ -34,7 +55,7 @@ JDK 8
 
     > bug描述：对于一个没有任何域`且`需要代理的对象，进行注入工作的时候会由于没有域需要注入，从而直接判断其已经完成注入，而跳过了代理阶段。
 
-## Version 1.3
+## Version 0.3(Pre-release)
 
 - 本次更新引入了日志依赖，增加了对ioc构造过程中的日志记录
 
@@ -42,7 +63,7 @@ JDK 8
 
 - 对于标注了`@Aspect`注解的类自动将其加入IOC容器中，不用再重复标注注解
 
-## Version 1.2
+## Version 0.2(Pre-release)
 
 本次更新加入了一些新功能，修复了一些bug
 
@@ -72,7 +93,7 @@ JDK 8
 
     > bug描述：当一个待注入bean中有超过一个需要注入的域（带有注解@Autowired且未完成赋值），如果对它中的方法进行切面，这时切面方法会重复执行
 
-## Version 1.1
+## Version 0.1(Pre-release)
 
 ​		本次更新主要修复了一些bug，以及优化了代码的结构
 
@@ -94,7 +115,7 @@ JDK 8
 
 6. 抽取可重用方法。
 
-## Version 1.0
+## Version 0.0(Pre-release)
 
 1. 完成IOC容器的初步搭建
 
