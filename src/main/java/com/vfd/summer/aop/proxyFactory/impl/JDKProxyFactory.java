@@ -26,6 +26,7 @@ public class JDKProxyFactory implements ProxyFactory {
      * @param methodBeProxy 被代理的方法
      * @return
      */
+    @SuppressWarnings("all")
     @Override
     public Object getProxyInstance(Method methodBeProxy,
                                    List<Method> before, List<Object> beforeAspect,
@@ -57,50 +58,4 @@ public class JDKProxyFactory implements ProxyFactory {
                     return result;
                 });
     }
-
-//    public Object getProxyInstanceBefore(Method proxyMethod, Object aspect, Method beforeMethod, Object[] beforeArgs) {
-//        return Proxy.newProxyInstance(realObj.getClass().getClassLoader(),
-//                realObj.getClass().getInterfaces(),
-//                (proxy, method, args) -> {
-//                    if (proxyMethod.getName().equals(method.getName()) &&
-//                            Arrays.equals(proxyMethod.getParameterTypes(), method.getParameterTypes()) &&
-//                            beforeMethod != null) {
-//                        beforeMethod.invoke(aspect, beforeArgs);
-//                    }
-//                    return method.invoke(realObj, args);
-//                });
-//    }
-//
-//    public Object getProxyInstanceAfter(Method proxyMethod, Object aspect, Method afterMethod, Object[] afterArgs) {
-//        return Proxy.newProxyInstance(realObj.getClass().getClassLoader(),
-//                realObj.getClass().getInterfaces(),
-//                (proxy, method, args) -> {
-//                    Object result = method.invoke(realObj, args);
-//                    if (proxyMethod.getName().equals(method.getName()) &&
-//                            Arrays.equals(proxyMethod.getParameterTypes(), method.getParameterTypes()) &&
-//                            afterMethod != null) {
-//                        afterMethod.invoke(aspect, afterArgs);
-//                    }
-//                    return result;
-//                });
-//    }
-//
-//    public Object getProxyInstanceAfterThrowing(Method proxyMethod, Object aspect, Method afterMethod, Object[] afterArgs) {
-//        return Proxy.newProxyInstance(realObj.getClass().getClassLoader(),
-//                realObj.getClass().getInterfaces(),
-//                (proxy, method, args) -> {
-//                    Object result = null;
-//                    try {
-//                        result = method.invoke(realObj, args);
-//                    } catch (Exception e) {
-//                        if (proxyMethod.getName().equals(method.getName()) &&
-//                                Arrays.equals(proxyMethod.getParameterTypes(), method.getParameterTypes()) &&
-//                                afterMethod != null) {
-//                            afterMethod.invoke(aspect, afterArgs);
-//                        }
-//                        e.printStackTrace();
-//                    }
-//                    return result;
-//                });
-//    }
 }

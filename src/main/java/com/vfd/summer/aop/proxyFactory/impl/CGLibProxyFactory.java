@@ -18,12 +18,13 @@ import java.util.List;
  */
 public class CGLibProxyFactory implements ProxyFactory {
 
-    private final Class<?> clazz;
+    private final Object realObj;
 
-    public CGLibProxyFactory(Class<?> clazz) {
-        this.clazz = clazz;
+    public CGLibProxyFactory(Object realObj) {
+        this.realObj = realObj;
     }
 
+    @SuppressWarnings("all")
     @Override
     public Object getProxyInstance(Method methodBeProxy,
                                    List<Method> before, List<Object> beforeAspect,
@@ -31,14 +32,14 @@ public class CGLibProxyFactory implements ProxyFactory {
                                    List<Method> afterThrowing, List<Object> throwingAspect,
                                    List<Method> afterReturning, List<Object> returningAspect) {
         Enhancer enhancer = new Enhancer();
-        enhancer.setSuperclass(clazz);
+        enhancer.setSuperclass(realObj.getClass());
         enhancer.setCallback((MethodInterceptor) (o, method, args, methodProxy) -> {
             Object result = null;
             if (methodBeProxy.getName().equals(method.getName()) &&
                     Arrays.equals(methodBeProxy.getParameterTypes(), method.getParameterTypes())) {
                 try {
                     invokeMethods(beforeAspect, before, method, args, null, null);
-                    result = methodProxy.invokeSuper(o, args);
+                    result = methodProxy.invoke(realObj, args);
                     invokeMethods(returningAspect, afterReturning, method, args, null, result);
                 } catch (Throwable throwable) {
                     if (afterThrowing.size() == 0)
@@ -49,7 +50,7 @@ public class CGLibProxyFactory implements ProxyFactory {
                     invokeMethods(afterAspect, after, method, args, null, null);
                 }
             } else {
-                result = methodProxy.invokeSuper(o , args);
+                result = methodProxy.invoke(realObj , args);
             }
             return result;
         });
