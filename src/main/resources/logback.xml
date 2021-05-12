@@ -33,18 +33,18 @@
     </appender>-->
 
     <!-- 使用root的appender-ref -->
-    <logger name="com.example.Logger1" level="" additivity="true">
+    <logger name="com.example.Logger1" level="INFO" additivity="true">
     </logger>
 
     <!-- 不使用root的appender-ref -->
-    <logger name="com.example.Logger2" level="DEBUG" additivity="false">
+    <logger name="com.example.Logger2" level="INFO" additivity="false">
     </logger>
 
-    <logger name="com.example.Logger3" level="DEBUG" additivity="false">
+    <logger name="com.example.Logger3" level="INFO" additivity="false">
         <appender-ref ref="STDOUT"/>
     </logger>
 
-    <root level="TRACE">
+    <root level="INFO">
         <appender-ref ref="STDOUT" />
        <!-- <appender-ref ref="FILE" />
         <appender-ref ref="RollingFile" />-->
