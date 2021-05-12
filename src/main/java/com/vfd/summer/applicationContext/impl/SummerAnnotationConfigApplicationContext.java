@@ -9,6 +9,7 @@ import com.vfd.summer.exception.DataConversionException;
 import com.vfd.summer.exception.DuplicateBeanClassException;
 import com.vfd.summer.exception.DuplicateBeanNameException;
 import com.vfd.summer.exception.NoSuchBeanException;
+import com.vfd.summer.extension.Extension;
 import com.vfd.summer.ioc.annotation.*;
 import com.vfd.summer.ioc.bean.BeanDefinition;
 import com.vfd.summer.ioc.tools.MyTools;
@@ -53,14 +54,17 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
     //保存所有类和切它的切面方法的集合
     private final Map<Class<?>, Set<Method>> aspect = new HashMap<>();
 
+    // 对外扩展接口实现类的对象
+    private List<? extends Extension> extensions = new ArrayList<>();
+
     //记录关键位置的日志
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
     /**
      * 加载的时候就扫描并创建对象
-     * @param basePackages
+     * @param basePackages 需要被ioc管理的包
      */
-    public SummerAnnotationConfigApplicationContext(String... basePackages) throws ClassNotFoundException, IllegalAccessException, InvocationTargetException, InstantiationException, NoSuchMethodException, DataConversionException, DuplicateBeanNameException, DuplicateBeanClassException, NoSuchBeanException {
+    public SummerAnnotationConfigApplicationContext(String... basePackages) throws Exception {
         //遍历包，找到目标类(原材料)
         findBeanDefinitions(basePackages);
         //根据原材料创建bean
@@ -74,9 +78,42 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
     }
 
     /**
+     * 带有扩展性的构建ioc容器
+     * @param basePackages 需要被ioc管理的包
+     */
+    public SummerAnnotationConfigApplicationContext(List<? extends Extension> extensions, String... basePackages) throws Exception {
+        this.extensions = extensions;
+        for (Extension extension : this.extensions) {
+            extension.doOperation0(this);
+        }
+        //遍历包，找到目标类(原材料)
+        findBeanDefinitions(basePackages);
+        for (Extension extension : this.extensions) {
+            extension.doOperation1(this);
+        }
+        //根据原材料创建bean
+        createObject();
+        for (Extension extension : this.extensions) {
+            extension.doOperation2(this);
+        }
+        //先将需要代理的对象进行动态代理
+        proxyObject();
+        for (Extension extension : this.extensions) {
+            extension.doOperation3(this);
+        }
+        //自动装载并将切面类中的方法横切目标方法并装入ioc容器中
+        autowireObject();
+        for (Extension extension : this.extensions) {
+            extension.doOperation4(this);
+        }
+        //容器初始化日志
+        logger.info("IOC容器初始化完成");
+    }
+
+    /**
      * 对二级缓存中的realObj对象中需要进行代理的对象进行代理设置
      */
-    private void proxyObject() throws NoSuchMethodException, ClassNotFoundException, IllegalAccessException, DuplicateBeanNameException, NoSuchBeanException, DataConversionException, DuplicateBeanClassException, InvocationTargetException, InstantiationException {
+    private void proxyObject() throws Exception {
         for (Map.Entry<String, Object> objectEntry : earlyRealObjects.entrySet()) {
             proxyObject(objectEntry.getValue());
         }
@@ -87,7 +124,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
      * @param obj
      * @return
      */
-    private Object proxyObject(Object obj) throws NoSuchMethodException, IllegalAccessException, DuplicateBeanClassException, DuplicateBeanNameException, NoSuchBeanException, DataConversionException, ClassNotFoundException, InvocationTargetException, InstantiationException {
+    private Object proxyObject(Object obj) throws Exception {
         Class<?> clazz = obj.getClass();
         String beanName = allBeansByType.get(clazz).getBeanName();
         //确保这个类需要被代理但是还没有被代理
@@ -97,20 +134,18 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
         return obj;
     }
 
-    private void autowireObject() throws NoSuchMethodException, DuplicateBeanClassException, IllegalAccessException, DuplicateBeanNameException, NoSuchBeanException, DataConversionException, ClassNotFoundException, InvocationTargetException, InstantiationException {
+    private void autowireObject() throws Exception {
         for (Map.Entry<String, Object> objectEntry : earlyRealObjects.entrySet()) {
             autowireObject(objectEntry.getValue());
         }
+        logger.info("所有单例模式且非懒加载模式的bean初始化完成");
     }
 
     /**
-     *
+     * 为对象里标注了@Autowired的域注入值
      * @param object
-     * @throws NoSuchMethodException
-     * @throws IllegalAccessException
-     * @throws ClassNotFoundException
      */
-    private void autowireObject (Object object) throws NoSuchMethodException, IllegalAccessException, ClassNotFoundException, DataConversionException, DuplicateBeanNameException, NoSuchBeanException, DuplicateBeanClassException, InvocationTargetException, InstantiationException {
+    private void autowireObject (Object object) throws Exception {
         final Class<?> clazz = object.getClass();
         for (Field field : clazz.getDeclaredFields()) {
             final Autowired autowired = field.getAnnotation(Autowired.class);
@@ -141,7 +176,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
     }
 
     @SuppressWarnings("all")
-    private Object setProxy(Object object) throws NoSuchMethodException, ClassNotFoundException, NoSuchBeanException, DuplicateBeanNameException, DuplicateBeanClassException, IllegalAccessException, DataConversionException, InvocationTargetException, InstantiationException {
+    private Object setProxy(Object object) throws Exception {
         Class<?> clazz = object.getClass();
         Object proxy = object;
         if (aspect.containsKey(clazz)) {         //判断这个注入的对象是否需要被代理，如果需要则代理
@@ -206,8 +241,6 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
      * @param clazz 被代理方法的类
      * @param method
      * @param map
-     * @throws NoSuchMethodException
-     * @throws ClassNotFoundException
      */
     private void addMethodsForAspect(String value, Class<?> clazz, Method method, Map<Method, Set<Method>> map) throws NoSuchMethodException, ClassNotFoundException {
         Method proxyMethod = getProxyMethod(value, clazz);
@@ -220,15 +253,8 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
      * 通过切面方法获得要执行此切面方法的切面类的对象
      * @param methods
      * @return
-     * @throws NoSuchMethodException
-     * @throws ClassNotFoundException
-     * @throws DuplicateBeanNameException
-     * @throws IllegalAccessException
-     * @throws DuplicateBeanClassException
-     * @throws NoSuchBeanException
-     * @throws DataConversionException
      */
-    private List<Object> getObjByAspect(List<Method> methods) throws NoSuchMethodException, ClassNotFoundException, DuplicateBeanNameException, IllegalAccessException, DuplicateBeanClassException, NoSuchBeanException, DataConversionException, InvocationTargetException, InstantiationException {
+    private List<Object> getObjByAspect(List<Method> methods) throws Exception {
         List<Object> objects = new LinkedList<>();
         for (Method method : methods) {
             objects.add(getObject(method.getDeclaringClass()));
@@ -238,10 +264,6 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
 
     /**
      * 对每个非懒加载且是单例模式bean创建对象
-     * @throws DataConversionException
-     * @throws DuplicateBeanClassException
-     * @throws DuplicateBeanNameException
-     * @throws NoSuchMethodException
      */
     private void createObject() throws DataConversionException, DuplicateBeanNameException, NoSuchMethodException, IllegalAccessException, InstantiationException, InvocationTargetException {
         for (BeanDefinition beanDefinition : beanDefinitions) {
@@ -249,7 +271,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
                 createObject(beanDefinition);
             }
         }
-        logger.info("所有单例模式且非懒加载模式的bean创建完成");
+        logger.info("所有单例模式且非懒加载模式的bean实例化完成");
     }
 
     /**
@@ -258,10 +280,6 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
      * 如果是单例模式的创建则在检查完beanName和beanClass的冲突无误后加入IOC容器中，如果非单例则直接返回
      * @param beanDefinition
      * @return
-     * @throws DataConversionException
-     * @throws DuplicateBeanNameException
-     * @throws DuplicateBeanClassException
-     * @throws NoSuchMethodException
      */
     private Object createObject(BeanDefinition beanDefinition) throws DataConversionException, DuplicateBeanNameException, NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
         Class<?> beanClass = beanDefinition.getBeanClass();
@@ -294,7 +312,6 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
      * @param value
      * @param field
      * @return
-     * @throws DataConversionException
      */
     private Object convertVal(String value, Field field) throws DataConversionException {
         Object val;
@@ -370,7 +387,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
         }
     }
 
-    private Set<String> getNamesByType(Class<?> beanType) {
+    private Set<String> getNamesByType (Class<?> beanType) {
         if (beanTypeAndName.containsKey(beanType)) {
             return beanTypeAndName.get(beanType);
         } else {
@@ -468,7 +485,6 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
      * 对于含有@Before、@After、@AfterThrowing注解的方法，将其对应的类以“类->方法集合”存入map中
      * @param method
      * @param value2
-     * @throws ClassNotFoundException
      */
     private void keepAspectMethod(Method method, String value2) throws ClassNotFoundException {
         String className = value2.substring(0, value2.substring(0, value2.indexOf("(")).lastIndexOf("."));
@@ -483,8 +499,6 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
      * @param value
      * @param aClass
      * @return
-     * @throws ClassNotFoundException
-     * @throws NoSuchMethodException
      */
     private Method getProxyMethod(String value, Class<?> aClass) throws ClassNotFoundException, NoSuchMethodException {
         String fullMethodName = value.substring(0, value.indexOf("("));     //全方法名
@@ -511,21 +525,26 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
      * 对于非单例或者延迟加载的bean在此创建实例化、代理、初始化
      * @param beanDefinition
      * @return
-     * @throws NoSuchMethodException
-     * @throws DuplicateBeanNameException
-     * @throws DuplicateBeanClassException
-     * @throws DataConversionException
-     * @throws IllegalAccessException
-     * @throws NoSuchBeanException
-     * @throws ClassNotFoundException
      */
-    private Object createBean(BeanDefinition beanDefinition) throws NoSuchMethodException, DuplicateBeanNameException, DuplicateBeanClassException, DataConversionException, IllegalAccessException, NoSuchBeanException, ClassNotFoundException, InvocationTargetException, InstantiationException {
+    private Object createBean(BeanDefinition beanDefinition) throws Exception {
+        for (Extension extension : extensions) {
+            extension.doOperation5(this, beanDefinition);
+        }
         //实例化一个对象，但并未初始化
         final Object object = createObject(beanDefinition);
+        for (Extension extension : extensions) {
+            extension.doOperation6(this, object);
+        }
         //对刚刚实例化的对象进行代理处理，需要先判断是否需要代理
         final Object o = proxyObject(object);
+        for (Extension extension : extensions) {
+            extension.doOperation7(this, object);
+        }
         //对代理后的对象（如果需要）进行注入工作
         autowireObject(object);
+        for (Extension extension : extensions) {
+            extension.doOperation8(this, object);
+        }
         return o;
     }
 
@@ -534,7 +553,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
      * @param beanName
      * @return
      */
-    private Object getObject(String beanName) throws NoSuchMethodException, NoSuchBeanException, DataConversionException, DuplicateBeanNameException, IllegalAccessException, ClassNotFoundException, DuplicateBeanClassException, InvocationTargetException, InstantiationException {
+    private Object getObject(String beanName) throws Exception {
         final Object o = iocByName.get(beanName);       //从一级缓存中获取
         if ( o != null) {
             return o;
@@ -556,7 +575,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
         return bean;
     }
 
-    private Object getObject(Class<?> beanType) throws NoSuchMethodException, ClassNotFoundException, IllegalAccessException, DuplicateBeanNameException, NoSuchBeanException, DuplicateBeanClassException, DataConversionException, InvocationTargetException, InstantiationException {
+    private Object getObject(Class<?> beanType) throws Exception {
         return getObject(getNameByType(beanType));
     }
 
@@ -564,25 +583,19 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
      * 根据beanName获取IOC容器中的bean
      * @param beanName
      * @return
-     * @throws NoSuchBeanException
-     * @throws DataConversionException
-     * @throws DuplicateBeanClassException
-     * @throws DuplicateBeanNameException
-     * @throws NoSuchMethodException
-     * @throws IllegalAccessException
-     * @throws ClassNotFoundException
      */
     @Override
-    public Object getBean(String beanName) throws NoSuchBeanException, DataConversionException, DuplicateBeanClassException, DuplicateBeanNameException, NoSuchMethodException, IllegalAccessException, ClassNotFoundException, InvocationTargetException, InstantiationException {
-        //先尝试在一级缓存中获取
+    public Object getBean(String beanName) throws Exception {
+        // 先尝试在一级缓存中获取
         final Object o = iocByName.get(beanName);
         if (o != null) {
             return o;
         }
+        // 考虑可能是懒加载或者原型模式
         final BeanDefinition beanDefinition = allBeansByName.get(beanName);
-        if (beanDefinition == null)
+        if (beanDefinition == null)         // 这个bean并未由ioc容器管理
             throw new NoSuchBeanException();
-        final Object bean = createBean(beanDefinition);
+        final Object bean = createBean(beanDefinition);     // 必定为懒加载或者原型模式
         if (beanDefinition.getSingleton()) {
             return iocByName.get(beanName);
         }
@@ -594,23 +607,16 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
      * @param beanType
      * @param <T>
      * @return
-     * @throws NoSuchBeanException
-     * @throws DataConversionException
-     * @throws DuplicateBeanClassException
-     * @throws DuplicateBeanNameException
-     * @throws NoSuchMethodException
-     * @throws IllegalAccessException
-     * @throws ClassNotFoundException
      */
     @SuppressWarnings("all")
     @Override
-    public <T> T getBean(Class<T> beanType) throws NoSuchBeanException, DataConversionException, DuplicateBeanClassException, DuplicateBeanNameException, NoSuchMethodException, IllegalAccessException, ClassNotFoundException, InvocationTargetException, InstantiationException {
+    public <T> T getBean(Class<T> beanType) throws Exception {
         return (T) getBean(getNameByType(beanType));
     }
 
     @SuppressWarnings("all")
     @Override
-    public <T> T getBean(String name, Class<T> beanType) throws NoSuchBeanException, NoSuchMethodException, ClassNotFoundException, IllegalAccessException, InstantiationException, DuplicateBeanNameException, DuplicateBeanClassException, InvocationTargetException, DataConversionException {
+    public <T> T getBean(String name, Class<T> beanType) throws Exception {
         final Object o = getBean(name); //iocByName.get(name);
         if (beanType.isInstance(o)) {
             return (T) o;
@@ -630,7 +636,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
 
     @SuppressWarnings("all")
     @Override
-    public <T> Map<String, T> getBeansOfType(Class<T> beanType) throws NoSuchBeanException, InstantiationException, InvocationTargetException, NoSuchMethodException, IllegalAccessException, DuplicateBeanNameException, DataConversionException, DuplicateBeanClassException, ClassNotFoundException {
+    public <T> Map<String, T> getBeansOfType(Class<T> beanType) throws Exception {
         Map<String, T> map = new HashMap<>();
         for (String s : getNamesByType(beanType)) {
             map.put(s, (T) getBean(s));
@@ -661,5 +667,37 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
     @Override
     public boolean containsBeanDefinition(String beanName) {
         return allBeansByName.containsKey(beanName);
+    }
+
+    public Map<String, Object> getIocByName() {
+        return iocByName;
+    }
+
+    public Map<String, Object> getEarlyRealObjects() {
+        return earlyRealObjects;
+    }
+
+    public Map<String, Object> getEarlyProxyObjects() {
+        return earlyProxyObjects;
+    }
+
+    public Set<BeanDefinition> getBeanDefinitions() {
+        return beanDefinitions;
+    }
+
+    public Map<String, BeanDefinition> getAllBeansByName() {
+        return allBeansByName;
+    }
+
+    public Map<Class<?>, BeanDefinition> getAllBeansByType() {
+        return allBeansByType;
+    }
+
+    public Map<Class<?>, Set<String>> getBeanTypeAndName() {
+        return beanTypeAndName;
+    }
+
+    public Map<Class<?>, Set<Method>> getAspect() {
+        return aspect;
     }
 }

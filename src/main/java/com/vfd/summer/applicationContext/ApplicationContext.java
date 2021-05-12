@@ -24,7 +24,7 @@ public interface ApplicationContext {
      * @param beanName
      * @return
      */
-    Object getBean(String beanName) throws NoSuchBeanException, DataConversionException, DuplicateBeanClassException, DuplicateBeanNameException, NoSuchMethodException, IllegalAccessException, ClassNotFoundException, InvocationTargetException, InstantiationException;
+    Object getBean(String beanName) throws Exception;
 
     /**
      * 根据bean的类型获取对象
@@ -32,7 +32,7 @@ public interface ApplicationContext {
      * @param <T>
      * @return
      */
-    <T> T getBean(Class<T> beanType) throws NoSuchBeanException, DataConversionException, DuplicateBeanClassException, DuplicateBeanNameException, NoSuchMethodException, IllegalAccessException, ClassNotFoundException, InvocationTargetException, InstantiationException;
+    <T> T getBean(Class<T> beanType) throws Exception;
 
     /**
      * 同时根据bean的类型和name获取对象，若一个接口多个实现类，则可以通过接口类型和name去获取
@@ -41,7 +41,7 @@ public interface ApplicationContext {
      * @param <T>
      * @return
      */
-    <T> T getBean(String name, Class<T> beanType) throws NoSuchBeanException, NoSuchMethodException, ClassNotFoundException, IllegalAccessException, InstantiationException, DuplicateBeanNameException, DuplicateBeanClassException, InvocationTargetException, DataConversionException, NoSuchBeanException;
+    <T> T getBean(String name, Class<T> beanType) throws Exception;
 
     /**
      * 根据name获取相应的类型
@@ -56,7 +56,7 @@ public interface ApplicationContext {
      * @param <T>
      * @return
      */
-    <T> Map<String, T> getBeansOfType(Class<T> beanType) throws NoSuchBeanException, InstantiationException, InvocationTargetException, NoSuchMethodException, IllegalAccessException, DuplicateBeanNameException, DataConversionException, DuplicateBeanClassException, ClassNotFoundException;
+    <T> Map<String, T> getBeansOfType(Class<T> beanType) throws Exception;
 
     /**
      * 获取BeanDefinition的数量，即ioc中管理的所有类的数量
