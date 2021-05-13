@@ -1,6 +1,6 @@
 # Summer
 
-[![](https://img.shields.io/badge/Release-v0.5-orange)](https://github.com/vfdxvffd/Summer/releases/tag/v0.5) &nbsp;&nbsp;&nbsp;[![](https://img.shields.io/badge/%E4%BD%BF%E7%94%A8%E6%96%87%E6%A1%A3-Summer-informational)](Summer使用文档.md) &nbsp;&nbsp;&nbsp;[![](https://img.shields.io/badge/%E6%9B%B4%E6%96%B0%E6%97%A5%E5%BF%97-log-important)](Summer更新日志.md)
+[![](https://img.shields.io/badge/Release-v1.0-important)](https://github.com/vfdxvffd/Summer/releases/v1.0) &nbsp;&nbsp;&nbsp;[![](https://img.shields.io/badge/%E4%BD%BF%E7%94%A8%E6%96%87%E6%A1%A3-Summer-informational)](Summer使用文档.md) &nbsp;&nbsp;&nbsp;[![](https://img.shields.io/badge/%E6%9B%B4%E6%96%B0%E6%97%A5%E5%BF%97-log-red)](Summer更新日志.md)&nbsp;&nbsp;&nbsp;[![](https://img.shields.io/badge/%E5%A6%82%E4%BD%95%E9%80%82%E9%85%8D-adapter-ff69b4)](如何适配Summer.md)
 
 ​		参考`Spring`框架实现一个简易类似的`Java`框架。计划陆续实现`IOC`、`AOP`、以及`数据访问模块和事务控制模块`。项目持续维护中...欢迎Star！Thanks~~~
 
@@ -8,9 +8,12 @@
 
 - [x] IOC容器
 - [x] AOP切面
+- [x] 对外的扩展接口
 - [ ] 数据访问集成模块（JDBC、事务控制）
 
 ​		关于对IOC和AOP功能`为什么要使用（why）`，以及`应该如何使用（how）`请移步[使用文档](Summer使用文档.md)，要了解每个版本更新的内容请移步[更新日志](Summer更新日志.md)。
+
+​		关于如何将自己的框架适配到summer，请查看[如何适配summer](如何适配Summer.md)。
 
 ## 运行环境
 
@@ -18,9 +21,17 @@ JDK 8
 
 ## 如何使用
 
-​		下载最新的jar包[![](https://img.shields.io/badge/Release-v0.5-orange)](https://github.com/vfdxvffd/Summer/releases/tag/v0.5) ，将其导入项目中，即可使用，目录结构如下图，蓝色框内为`summer`的核心代码，`ch`包下为`logback`日志依赖，`net.sf.cglib`下为cglib动态代理的依赖，`org.slf4j`下为`slf4j`的日志门面依赖。
+​		下载最新的jar包[![](https://img.shields.io/badge/Release-v1.0-important)](https://github.com/vfdxvffd/Summer/releases/v1.0) ，将其导入项目中，即可使用，目录结构如下图，蓝色框内为`summer`的核心代码，`ch`包下为`logback`日志依赖，`net.sf.cglib`下为cglib动态代理的依赖，`org.slf4j`下为`slf4j`的日志门面依赖。
 
-![](img/2021-04-15_18-32.png)
+![](img/2021-05-13_17-27.png)
+
+## Version 1.0(Release)
+
+本次更新测试了之前的版本的稳定性，以及增加了框架的扩展性，开放出别的框架适配的接口。
+
+- 对之前的`pre-release`版本进行了多次测试以确保稳定性。
+- 框架对外开放`Extension`接口，该接口中的方法在`ioc`容器构造的多个阶段进行了切入，增加了框架的可扩展性。
+- 如何将自己的框架适配到`Summer`，请看[如何适配summer](如何适配Summer.md)或者可以提[issues](https://github.com/vfdxvffd/Summer/issues)。
 
 ## Version 0.5(Pre-release)
 
