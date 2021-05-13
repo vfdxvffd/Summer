@@ -6,7 +6,7 @@
 
     <groupId>org.vfd</groupId>
     <artifactId>Summer</artifactId>
-    <version>v0.5-vfdxvffd</version>
+    <version>v1.0-vfdxvffd</version>
 
     <build>
         <plugins>
