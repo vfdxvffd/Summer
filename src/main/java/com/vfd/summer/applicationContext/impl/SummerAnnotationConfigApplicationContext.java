@@ -29,35 +29,38 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class SummerAnnotationConfigApplicationContext implements ApplicationContext {
 
-    //一级缓存，存放的是最终的对象
-    //缓存ioc里面的对象，key：beanName, value：object
+    // 一级缓存，存放的是最终的对象
+    // 缓存ioc里面的对象，key：beanName, value：object
     private final Map<String, Object> iocByName = new HashMap<>(256);
 
-    //二级缓存，存放半成品对象
+    // 二级缓存，存放半成品对象
     private final Map<String, Object> earlyRealObjects = new ConcurrentHashMap<>(256);
 
-    //二级缓存，存放半成品的代理对象
+    // 二级缓存，存放半成品的代理对象
     private final Map<String, Object> earlyProxyObjects = new ConcurrentHashMap<>(16);
 
-    //保存所有的beanDefinition
-    Set<BeanDefinition> beanDefinitions = new HashSet<>(256);
+    // 保存所有的beanDefinition
+    private final Set<BeanDefinition> beanDefinitions = new HashSet<>(256);
 
-    //保存此ioc容器中所有对象的beanName和beanDefinition的对应关系
+    // 保存此ioc容器中所有对象的beanName和beanDefinition的对应关系
     private final Map<String, BeanDefinition> allBeansByName = new HashMap<>();
 
-    //保存此ioc容器中所有对象的beanType和beanDefinition的对应关系
+    // 保存此ioc容器中所有对象的beanType和beanDefinition的对应关系
     private final Map<Class<?>, BeanDefinition> allBeansByType = new HashMap<>();
 
-    //保存bean的type和name的对应关系，采用缓存的形式存在
+    // 保存bean的type和name的对应关系，采用缓存的形式存在
     private final Map<Class<?>, Set<String>> beanTypeAndName = new HashMap<>();
 
-    //保存所有类和切它的切面方法的集合
+    // 保存所有类和切它的切面方法的集合
     private final Map<Class<?>, Set<Method>> aspect = new HashMap<>();
 
     // 对外扩展接口实现类的对象
     private List<? extends Extension> extensions = new ArrayList<>();
 
-    //记录关键位置的日志
+    // property配置文件的位置
+    private final String propertyFile;
+
+    // 记录关键位置的日志
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
     /**
@@ -65,6 +68,17 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
      * @param basePackages 需要被ioc管理的包
      */
     public SummerAnnotationConfigApplicationContext(String... basePackages) throws Exception {
+        this (null, basePackages);
+    }
+
+    /**
+     * 加载的时候就扫描并创建对象
+     * @param basePackages 需要被ioc管理的包
+     */
+    public SummerAnnotationConfigApplicationContext(String propertyFile, String[] basePackages) throws Exception {
+
+        this.propertyFile = propertyFile;
+
         //遍历包，找到目标类(原材料)
         findBeanDefinitions(basePackages);
         //根据原材料创建bean
@@ -81,8 +95,9 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
      * 带有扩展性的构建ioc容器
      * @param basePackages 需要被ioc管理的包
      */
-    public SummerAnnotationConfigApplicationContext(List<? extends Extension> extensions, String... basePackages) throws Exception {
+    public SummerAnnotationConfigApplicationContext(String propertyFile, List<? extends Extension> extensions, String... basePackages) throws Exception {
         this.extensions = extensions;
+        this.propertyFile = propertyFile;
         for (Extension extension : this.extensions) {
             extension.doOperation0(this);
         }
@@ -699,5 +714,9 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
 
     public Map<Class<?>, Set<Method>> getAspect() {
         return aspect;
+    }
+
+    public String getPropertyFile() {
+        return propertyFile;
     }
 }
