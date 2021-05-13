@@ -1,5 +1,13 @@
 # Summer更新日志
 
+## Version 1.0(Release)
+
+本次更新测试了之前的版本的稳定性，以及增加了框架的扩展性，开放出别的框架适配的接口。
+
+- 对之前的`pre-release`版本进行了多次测试以确保稳定性。
+- 框架对外开放`Extension`接口，该接口中的方法在`ioc`容器构造的多个阶段进行了切入，增加了框架的可扩展性。
+- 如何将自己的框架适配到`Summer`，请看[如何适配summer](如何适配Summer.md)或者可以提[issues](https://github.com/vfdxvffd/Summer/issues)。
+
 ## Version 0.5(Pre-release)
 
 <center><b><font size = "6" color = "red">一次重大更新</font></b></center>
