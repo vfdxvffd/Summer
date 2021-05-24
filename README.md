@@ -1,6 +1,6 @@
 # Summer
 
-[![](https://img.shields.io/badge/Release-v1.0-important)](https://github.com/vfdxvffd/Summer/releases/v1.0) &nbsp;&nbsp;&nbsp;[![](https://img.shields.io/badge/%E4%BD%BF%E7%94%A8%E6%96%87%E6%A1%A3-Summer-informational)](Summer使用文档.md) &nbsp;&nbsp;&nbsp;[![](https://img.shields.io/badge/%E6%9B%B4%E6%96%B0%E6%97%A5%E5%BF%97-log-red)](Summer更新日志.md)&nbsp;&nbsp;&nbsp;[![](https://img.shields.io/badge/%E5%A6%82%E4%BD%95%E9%80%82%E9%85%8D-adapter-ff69b4)](如何适配Summer.md)
+[![](https://img.shields.io/badge/Release-v1.1-important)](https://github.com/vfdxvffd/Summer/releases/v1.1) &nbsp;&nbsp;&nbsp;[![](https://img.shields.io/badge/%E4%BD%BF%E7%94%A8%E6%96%87%E6%A1%A3-Summer-informational)](Summer使用文档.md) &nbsp;&nbsp;&nbsp;[![](https://img.shields.io/badge/%E6%9B%B4%E6%96%B0%E6%97%A5%E5%BF%97-log-red)](Summer更新日志.md)&nbsp;&nbsp;&nbsp;[![](https://img.shields.io/badge/%E5%A6%82%E4%BD%95%E9%80%82%E9%85%8D-adapter-ff69b4)](如何适配Summer.md)
 
 ​		参考`Spring`框架实现一个简易类似的`Java`框架。计划陆续实现`IOC`、`AOP`、以及`数据访问模块和事务控制模块`。项目持续维护中...欢迎Star！Thanks~~~
 
@@ -21,9 +21,14 @@ JDK 8
 
 ## 如何使用
 
-​		下载最新的jar包[![](https://img.shields.io/badge/Release-v1.0-important)](https://github.com/vfdxvffd/Summer/releases/v1.0) ，将其导入项目中，即可使用，目录结构如下图，蓝色框内为`summer`的核心代码，`ch`包下为`logback`日志依赖，`net.sf.cglib`下为cglib动态代理的依赖，`org.slf4j`下为`slf4j`的日志门面依赖。
+​		下载最新的jar包[![](https://img.shields.io/badge/Release-v1.1-important)](https://github.com/vfdxvffd/Summer/releases/v1.1) ，将其导入项目中，即可使用，目录结构如下图，蓝色框内为`summer`的核心代码，`ch`包下为`logback`日志依赖，`net.sf.cglib`下为cglib动态代理的依赖，`org.slf4j`下为`slf4j`的日志门面依赖。
 
 ![](img/2021-05-13_17-27.png)
+
+## Version 1.1 (Release)
+
+* 增加@configuration、@bean两个注解，可以通过这两个注解向容器注入配置的bean
+* 对于@Configuration注解可以通过指定proxyBeanMethods属性的true或者false来表示是否代理配置类，如果代理则标注了@Bean的方法返回的bean是单例的
 
 ## Version 1.0(Release)
 

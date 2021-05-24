@@ -1,5 +1,10 @@
 # Summer更新日志
 
+## Version 1.1 (Release)
+
+* 增加@configuration、@bean两个注解，可以通过这两个注解向容器注入配置的bean
+* 对于@Configuration注解可以通过指定proxyBeanMethods属性的true或者false来表示是否代理配置类，如果代理则标注了@Bean的方法返回的bean是单例的
+
 ## Version 1.0(Release)
 
 本次更新测试了之前的版本的稳定性，以及增加了框架的扩展性，开放出别的框架适配的接口。
