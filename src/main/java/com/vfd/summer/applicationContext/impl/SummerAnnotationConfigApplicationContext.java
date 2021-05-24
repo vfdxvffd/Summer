@@ -1,5 +1,7 @@
 package com.vfd.summer.applicationContext.impl;
 
+import com.vfd.summer.annotation.Bean;
+import com.vfd.summer.annotation.Configuration;
 import com.vfd.summer.aop.proxyFactory.impl.CGLibProxyFactory;
 import com.vfd.summer.aop.proxyFactory.impl.JDKProxyFactory;
 import com.vfd.summer.aop.annotation.*;
@@ -13,6 +15,8 @@ import com.vfd.summer.extension.Extension;
 import com.vfd.summer.ioc.annotation.*;
 import com.vfd.summer.ioc.bean.BeanDefinition;
 import com.vfd.summer.ioc.tools.MyTools;
+import net.sf.cglib.proxy.Enhancer;
+import net.sf.cglib.proxy.MethodInterceptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,7 +25,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * @PackageName: iocByName.applicationContext
+ * @PackageName: com.vfd.summer.applicationContext.impl
  * @ClassName: SummerAnnotationConfigApplicationContext
  * @Description:
  * @author: vfdxvffd
@@ -31,7 +35,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
 
     // 一级缓存，存放的是最终的对象
     // 缓存ioc里面的对象，key：beanName, value：object
-    private final Map<String, Object> iocByName = new HashMap<>(256);
+    private final Map<String, Object> iocByName = new ConcurrentHashMap<>(256);
 
     // 二级缓存，存放半成品对象
     private final Map<String, Object> earlyRealObjects = new ConcurrentHashMap<>(256);
@@ -87,6 +91,8 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
         proxyObject();
         //自动装载并将切面类中的方法横切目标方法并装入ioc容器中
         autowireObject();
+        // 注入配置类
+        addConfig();
         //容器初始化日志
         logger.info("IOC容器初始化完成");
     }
@@ -121,8 +127,57 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
         for (Extension extension : this.extensions) {
             extension.doOperation4(this);
         }
+        // 检查所有标注了@Configuration注解的类
+        addConfig();
+        for (Extension extension : this.extensions) {
+            extension.doOperation9(this);
+        }
         //容器初始化日志
         logger.info("IOC容器初始化完成");
+    }
+
+    /**
+     * 将配置类加入到容器
+     */
+    private void addConfig () throws DuplicateBeanNameException, InvocationTargetException, IllegalAccessException {
+        final Set<Map.Entry<String, Object>> entrySet = iocByName.entrySet();
+        for (Map.Entry<String, Object> objectEntry : entrySet) {
+            final Object o = checkConfig(objectEntry.getValue());
+            if (o != null) {
+                iocByName.put(objectEntry.getKey(), o);
+            }
+        }
+    }
+
+    private Object checkConfig (Object obj) throws DuplicateBeanNameException, InvocationTargetException, IllegalAccessException {
+        final Class<?> clazz = obj.getClass();
+        final Configuration configuration = clazz.getAnnotation(Configuration.class);
+        if (configuration != null) {
+            for (Method method : clazz.getDeclaredMethods()) {
+                final Bean bean = method.getAnnotation(Bean.class);
+                if (bean != null) {
+                    // 执行这个方法， 并将执行后的结果加入到IOC容器中
+                    Class<?> aClass = method.getReturnType();
+                    String beanName = bean.name();
+                    if ("".equals(beanName)) {
+                        beanName = method.getName();
+                    }
+                    if (allBeansByName.containsKey(beanName) || iocByName.containsKey(beanName)) {
+                        throw new DuplicateBeanNameException(beanName);
+                    }
+                    final Object[] args = new Object[]{};
+                    final Object result = method.invoke(obj, args);
+                    iocByName.put(beanName, result);
+                    BeanDefinition beanDefinition = new BeanDefinition(beanName, aClass, false, true);
+                    allBeansByName.put(beanName, beanDefinition);
+                }
+            }
+
+            // 如果需要代理则将此标注了@Configuration的类的代理类加入ioc容器
+            if (configuration.proxyBeanMethods())
+                return setConfigProxy(obj);
+        }
+        return null;
     }
 
     /**
@@ -141,8 +196,10 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
      */
     private Object proxyObject(Object obj) throws Exception {
         Class<?> clazz = obj.getClass();
+        // 由于是对特定对象的代理设置，所以通过beanTyp获取beanName时候不能使用getNameByType方法
+        // getNameByType方法会通过此类型找出所有此类型及此类型派生类的所有的bean的beanName
         String beanName = allBeansByType.get(clazz).getBeanName();
-        //确保这个类需要被代理但是还没有被代理
+        // 确保这个类需要被代理但是还没有被代理
         if (aspect.containsKey(clazz) && !earlyProxyObjects.containsKey(beanName)) {
             return setProxy(obj);
         }
@@ -181,6 +238,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
                 field.set(object, bean);
             }
         }
+        // 检查此对象是否是单例、非懒加载的，如果是就将其加入一级缓存中，并从二级缓存中删除
         final BeanDefinition beanDefinition = allBeansByType.get(clazz);
         if (beanDefinition.getSingleton()) {
             String beanName = beanDefinition.getBeanName();
@@ -239,6 +297,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
                     proxy = proxyFactory.getProxyInstance(declaredMethod, beforeMethods, beforeObject,
                             afterMethods, afterObject, throwingMethods, throwingObject,
                             returningMethods, returningObject);
+                    // 检查此对象是否是单例，如果是则需要加入二级缓存中，后面继续对起进行注入工作
                     final BeanDefinition beanDefinition = allBeansByType.get(clazz);
                     if (beanDefinition.getSingleton()) {
                         earlyProxyObjects.put(beanDefinition.getBeanName(), proxy);
@@ -248,6 +307,36 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
             }
         }
         return proxy;
+    }
+
+    private Object setConfigProxy (Object object) {
+        Enhancer enhancer = new Enhancer();
+        enhancer.setSuperclass(object.getClass());
+        enhancer.setCallback((MethodInterceptor) (o, method, args, methodProxy) -> {
+            Object result;
+            final Bean bean = method.getAnnotation(Bean.class);
+            if (bean != null) {
+                Class<?> clazz = method.getReturnType();
+                String beanName = bean.name();
+                if ("".equals(beanName)) {
+                   beanName = method.getName();
+                }
+                // String beanName = checkBeanName(bean.name(), clazz);
+                if (iocByName.containsKey(beanName)) {
+                    result = iocByName.get(beanName);
+                } else {
+                    result = methodProxy.invoke(object , args);
+                    iocByName.put(beanName, result);
+                    BeanDefinition beanDefinition = new BeanDefinition(beanName, clazz, false, true);
+                    allBeansByName.put(beanName, beanDefinition);
+                    // allBeansByType.put(clazz, beanDefinition);
+                }
+            } else {
+                result = methodProxy.invoke(object , args);
+            }
+            return result;
+        });
+        return enhancer.create();
     }
 
     /**
@@ -393,12 +482,14 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
         return val;
     }
 
-    private String getNameByType(Class<?> beanType) throws DuplicateBeanClassException {
+    private String getNameByType(Class<?> beanType) throws DuplicateBeanClassException, NoSuchBeanException {
         final Set<String> namesByType = getNamesByType(beanType);
         if (namesByType.size() == 1) {
             return namesByType.iterator().next();
-        } else {
+        } else if (namesByType.size() > 1) {
             throw new DuplicateBeanClassException(beanType);
+        } else {
+            throw new NoSuchBeanException();
         }
     }
 
@@ -408,10 +499,10 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
         } else {
             // 缓存中没有 so检查后加入缓存中
             Set<String> set = new HashSet<>();
-            for (Map.Entry<Class<?>, BeanDefinition> entry : allBeansByType.entrySet()) {
+            for (Map.Entry<String, BeanDefinition> entry : allBeansByName.entrySet()) {
                 //如果beanType是当前entry.getKey()的父类或者实现的接口或者父接口或者本身
-                if (beanType.isAssignableFrom(entry.getKey())) {
-                    set.add(entry.getValue().getBeanName());
+                if (beanType.isAssignableFrom(entry.getValue().getBeanClass())) {
+                    set.add(entry.getKey());
                 }
             }
             beanTypeAndName.put(beanType, set);
@@ -458,21 +549,24 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
                 Repository repository = clazz.getAnnotation(Repository.class);
                 Service service = clazz.getAnnotation(Service.class);
                 Controller controller = clazz.getAnnotation(Controller.class);
+                final Configuration configuration = clazz.getAnnotation(Configuration.class);
                 String beanName = null;
                 if (componentAnnotation != null)    beanName = componentAnnotation.value();
                 if (repository != null)    beanName = repository.value();
                 if (service != null)    beanName = service.value();
                 if (controller != null)    beanName = controller.value();
+                if (configuration != null)  beanName = configuration.value();
                 if (aspect != null)    beanName = aspect.value();
                 if (beanName != null) {      //如果此类带了@Component、@Repository、@Service、@Controller注解之一
-                    if ("".equals(beanName)) {    //没有添加beanName则默认是类的首字母小写
+                    beanName = checkBeanName(beanName, clazz);
+                    /*if ("".equals(beanName)) {    //没有添加beanName则默认是类的首字母小写
                         //获取类名首字母小写
                         String className = clazz.getName().replaceAll(clazz.getPackage().getName() + ".", "");
                         beanName = className.substring(0, 1).toLowerCase() + className.substring(1);
                     }
                     if (allBeansByName.containsKey(beanName)) {
                         throw new DuplicateBeanNameException(beanName);
-                    }
+                    }*/
                     //3、将这些类封装成BeanDefinition，装载到集合中
                     Boolean lazy = clazz.getAnnotation(Lazy.class) != null;
                     boolean singleton = true;
@@ -494,6 +588,18 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
             }
             logger.info("扫描package:[{}]完成",basePackage);
         }
+    }
+
+    private String checkBeanName (String beanName, Class<?> clazz) throws DuplicateBeanNameException {
+        if ("".equals(beanName)) {    //没有添加beanName则默认是类的首字母小写
+            //获取类名首字母小写
+            String className = clazz.getName().replaceAll(clazz.getPackage().getName() + ".", "");
+            beanName = className.substring(0, 1).toLowerCase() + className.substring(1);
+        }
+        if (allBeansByName.containsKey(beanName)) {
+            throw new DuplicateBeanNameException(beanName);
+        }
+        return beanName;
     }
 
     /**
