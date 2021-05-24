@@ -29,4 +29,7 @@ public interface Extension {
     void doOperation7 (SummerAnnotationConfigApplicationContext context, Object o) throws Exception;
 
     void doOperation8 (SummerAnnotationConfigApplicationContext context, Object o) throws Exception;
+
+    // v1.1 更新内容，此操作对应于@Configuration注解处理之后的操作
+    void doOperation9 (SummerAnnotationConfigApplicationContext context) throws Exception;
 }
