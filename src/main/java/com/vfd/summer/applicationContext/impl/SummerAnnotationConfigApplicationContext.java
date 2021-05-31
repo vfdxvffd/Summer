@@ -68,7 +68,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
     /**
-     * 加载的时候就扫描并创建对象
+     * 加载的时候就扫描并创建对象，没有配置文件需要加载
      * @param basePackages 需要被ioc管理的包
      */
     public SummerAnnotationConfigApplicationContext(String... basePackages) throws Exception {
@@ -76,7 +76,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
     }
 
     /**
-     * 加载的时候就扫描并创建对象
+     * 加载的时候就扫描并创建对象，需要加载配置文件
      * @param basePackages 需要被ioc管理的包
      */
     public SummerAnnotationConfigApplicationContext(String propertyFile, String[] basePackages) throws Exception {
@@ -98,10 +98,11 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
     }
 
     /**
-     * 带有扩展性的构建ioc容器
+     * 带有扩展性的构建ioc容器，需要加载配置文件，且有对此框架的扩展框架的适配
      * @param basePackages 需要被ioc管理的包
      */
-    public SummerAnnotationConfigApplicationContext(String propertyFile, List<? extends Extension> extensions, String... basePackages) throws Exception {
+    public SummerAnnotationConfigApplicationContext(String propertyFile, List<? extends Extension> extensions,
+                                                    String... basePackages) throws Exception {
         this.extensions = extensions;
         this.propertyFile = propertyFile;
         for (Extension extension : this.extensions) {
@@ -138,6 +139,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
 
     /**
      * 将配置类加入到容器
+     * 对一级缓存做检查，如果是配置类，则需要执行其中标注了@Bean的方法，然后将方法的返回结果加入一级缓存
      */
     private void addConfig () throws DuplicateBeanNameException, InvocationTargetException, IllegalAccessException {
         final Set<Map.Entry<String, Object>> entrySet = iocByName.entrySet();
@@ -149,6 +151,12 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
         }
     }
 
+    /**
+     * 检查是否是配置类，如果是就执行其中的标注了@Bean的方法，并将返回结果加入一级缓存
+     * 如果配置需要代理，则将代理类以同样的beanName加入一级缓存覆盖掉之前的原对象
+     * @param obj
+     * @return
+     */
     private Object checkConfig (Object obj) throws DuplicateBeanNameException, InvocationTargetException, IllegalAccessException {
         final Class<?> clazz = obj.getClass();
         final Configuration configuration = clazz.getAnnotation(Configuration.class);
@@ -162,6 +170,7 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
                     if ("".equals(beanName)) {
                         beanName = method.getName();
                     }
+                    // 也许只要一个allBeansByName来判断就足够了，但由于是||，就算iocByName不是必要的也不会影响效率
                     if (allBeansByName.containsKey(beanName) || iocByName.containsKey(beanName)) {
                         throw new DuplicateBeanNameException(beanName);
                     }
@@ -206,6 +215,10 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
         return obj;
     }
 
+    /**
+     * 向二级缓存的对象中自动注入依赖，当所有依赖都注入完成后即可将对象加入一级缓存，成为一个完整的对象
+     * @throws Exception
+     */
     private void autowireObject() throws Exception {
         for (Map.Entry<String, Object> objectEntry : earlyRealObjects.entrySet()) {
             autowireObject(objectEntry.getValue());
@@ -248,6 +261,13 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
         }
     }
 
+    /**
+     * 对于AOP中被切面类横切的类进行代理设置，如果类实现了接口就采用JDK动态代理，如果没有实现接口就使用CGLib进行代理
+     * 将代理对象加入到二级缓存中的earlyProxyObjects
+     * @param object
+     * @return
+     * @throws Exception
+     */
     @SuppressWarnings("all")
     private Object setProxy(Object object) throws Exception {
         Class<?> clazz = object.getClass();
@@ -309,6 +329,12 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
         return proxy;
     }
 
+    /**
+     * 设置配置类对象的代理，如果proxyBeanMethods属性为true,则表示需要代理
+     * 代理的原则逻辑：如果此Bean已经存在与IOC容器（一级缓存）中，则直接从容器中获取并返回，如果不存在则执行后加入容器并返回
+     * @param object
+     * @return
+     */
     private Object setConfigProxy (Object object) {
         Enhancer enhancer = new Enhancer();
         enhancer.setSuperclass(object.getClass());
@@ -482,6 +508,14 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
         return val;
     }
 
+    /**
+     * 通过beanType获取beanName，调用此方法必须保证此beanType对应的是唯一的一个beanName
+     * 如果此beanType在容器中还有对应派生类的对象、或者此beanType是接口类型，在容器中有多个实现类对象则会抛出DuplicateBeanClassException异常
+     * @param beanType
+     * @return
+     * @throws DuplicateBeanClassException
+     * @throws NoSuchBeanException
+     */
     private String getNameByType(Class<?> beanType) throws DuplicateBeanClassException, NoSuchBeanException {
         final Set<String> namesByType = getNamesByType(beanType);
         if (namesByType.size() == 1) {
@@ -493,6 +527,12 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
         }
     }
 
+    /**
+     * 通过beanType获取beanName
+     * 此方法可以获取此类型对应的所有派生类或者实现类（对于接口而言）的对象的beanName
+     * @param beanType
+     * @return
+     */
     private Set<String> getNamesByType (Class<?> beanType) {
         if (beanTypeAndName.containsKey(beanType)) {
             return beanTypeAndName.get(beanType);
