@@ -88,7 +88,7 @@ public class Student {
 }
 ```
 
-### 如何控制bean在IOC中是单例模式还是非单例模式
+### 如何控制bean在IOC中是单例模式还是原型模式
 
 ​		Summer默认每个bean都是单例模式，如果是单例模式，你通过IOC容器获取无数次bean，它们的`==`运算返回结果将永远是`true`，但是你也可以通过一些注解来使其变为非单例模式。非单例模式下，你的每次获取都会得到一个不同的对象，而且这个对象永远不会被加入到IOC容器中。`@Scope`注解很乐意完成这个任务，默认采用单例模式，但如果使用到`@Scope`注解，你可以通过传入一个String类型的参数来指定是否单例。
 
@@ -128,14 +128,59 @@ ApplicationContext ioc = new SummerAnnotationConfigApplicationContext("com.vfd.s
 
 ​		可以看出我们需要传入一个字符串，这个字符串是一个包名，表示了IOC容器的作用域，IOC只可以去扫描和控制这个包下的所有类。
 
-​		`applicationContext`接口暂时只提供了两个方法来获取bean，一个是通过`beanName`，一个是通过`beanType`。
+​		`ApplicationContext`接口暂时只提供了三个方法来获取bean，一个是通过`beanName`，一个是通过`beanType`，还有一个同时传入`beanName`和`beanType`。以及一些其他的获取`IOC`容器信息属性的方法。
 
 ```java
 public interface ApplicationContext {
-    Object getBean(String var1) ;
 
-    <T> T getBean(Class<T> var1) ;
+    /**
+     * 根据bean的name获取对象
+     */
+    Object getBean(String beanName) throws Exception;
+
+    /**
+     * 根据bean的类型获取对象
+     */
+    <T> T getBean(Class<T> beanType) throws Exception;
+
+    /**
+     * 同时根据bean的类型和name获取对象，若一个接口多个实现类，则可以通过接口类型和name去获取
+     */
+    <T> T getBean(String name, Class<T> beanType) throws Exception;
+
+    /**
+     * 根据name获取相应的类型
+     */
+    Class<?> getType(String name) throws NoSuchBeanException;
+
+    /**
+     * 根据类型获取该类型对应的所有bean,比如一个接口和它的所有实现类，用map返回<beanName, Object>
+     */
+    <T> Map<String, T> getBeansOfType(Class<T> beanType) throws Exception;
+
+    /**
+     * 获取BeanDefinition的数量，即ioc中管理的所有类的数量
+     */
+    int getBeanDefinitionCount();
+
+    /**
+     * 获取所有BeanDefinition的name属性
+     */
+    String[] getBeanDefinitionNames();
+
+    /**
+     * 判断是否存在name为传入参数的bean
+     */
+    boolean containsBean(String name);
+
+    /**
+     * 判断是否存在name为传入参数的BeanDefinition
+     * 与上一个方法不同的是上一个判断的是实际的对象，而这个方法判断的是BeanDefinition
+     * 若某个类为原型模式（非单例），则它的对象不会存储在ioc容器中，但BeanDefinition是一直存在的
+     */
+    boolean containsBeanDefinition(String beanName);
 }
+
 ```
 
 ​		我们可以通过调用上述两个接口来获取对象：
@@ -148,6 +193,25 @@ BookController bookController = (BookController) ioc.getBean("bookController");
 ps：我们可以通过接口来获取实现类的bean，因为ioc中无法保存接口的实例，或者说接口没有实例。
 
 ​		这个获取到的对象，不管其中有多么复杂的依赖，只要它的依赖都在ioc的控制范围内，且标了相应正确的注解，那么它里面的依赖关系就全由ioc容器处理好了。只需要直接调用使用它即可。
+
+### 如果想容器中加入一个配置类
+
+​		使用`@Configuration`注解标注在配置类上，在配置类上使用方法，在方法上标注`@Bean`注解，则会将方法的返回值作为bean加入到ioc容器中。
+
+​		`@Configuration`注解有一个参数`proxyBeanMethods`指示是否需要代理该配置类，默认为true即需要代理，如果为true，则该配置类中的标注了`@Bean`的方法的返回值为单例模式，如果为false则为原型模式。
+
+​		对于`@Configuration`和`@Bean`两个注解，指定`value`的值来为配置类设置`beanName`，如果缺省则默认为类名首字母小写，指定`name`的值来为方法返回值的`bean`指定`beanName`，如果缺省则为方法名。
+
+```java
+@Configuration (proxyBeanMethods = true)
+public class MyConfig {
+
+    @Bean(name = "book")			// 缺省name则beanName为book1
+    public Book book1 () {
+        return new Book("三国演义", "a-1");
+    }
+}
+```
 
 ## AOP
 

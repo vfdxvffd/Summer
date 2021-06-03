@@ -19,6 +19,12 @@
 
 JDK 8
 
+## 适配的其他框架
+
+| 框架        | 框架概述                                                     | 项目仓库链接                                                 |
+| ----------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| summer-vrpc | 一款基于netty的用于Java的rpc框架，适配到`summer`框架的适配版本，利用注解可以更快的开发。 | [https://github.com/vfdxvffd/summer-vrpc](https://github.com/vfdxvffd/summer-vrpc) |
+
 ## 如何使用
 
 ​		下载最新的jar包[![](https://img.shields.io/badge/Release-v1.1-important)](https://github.com/vfdxvffd/Summer/releases/v1.1) ，将其导入项目中，即可使用，目录结构如下图，蓝色框内为`summer`的核心代码，`ch`包下为`logback`日志依赖，`net.sf.cglib`下为cglib动态代理的依赖，`org.slf4j`下为`slf4j`的日志门面依赖。
