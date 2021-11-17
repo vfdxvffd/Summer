@@ -20,6 +20,7 @@ import net.sf.cglib.proxy.MethodInterceptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.annotation.Annotation;
 import java.lang.reflect.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -63,6 +64,8 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
 
     // property配置文件的位置
     private final String propertyFile;
+
+    private Map<Class<?>, List<Class<?>>> annotationType2Clazz = new HashMap<>();
 
     // 记录关键位置的日志
     private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -562,6 +565,11 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
             Set<Class<?>> classes = MyTools.getClasses(basePackage);
             for (Class<?> clazz : classes) {
                 //2、遍历这些类，找到添加了注解的类
+                for (Annotation annotation : clazz.getAnnotations()) {
+                    List<Class<?>> clazzList = annotationType2Clazz.getOrDefault(annotation.annotationType(), new ArrayList<>());
+                    clazzList.add(clazz);
+                    annotationType2Clazz.put (annotation.annotationType(), clazzList);
+                }
                 //先将带有Aspect注解的类保存起来
                 Aspect aspect = clazz.getAnnotation(Aspect.class);
                 if (aspect != null) {
@@ -599,14 +607,6 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
                 if (aspect != null)    beanName = aspect.value();
                 if (beanName != null) {      //如果此类带了@Component、@Repository、@Service、@Controller注解之一
                     beanName = checkBeanName(beanName, clazz);
-                    /*if ("".equals(beanName)) {    //没有添加beanName则默认是类的首字母小写
-                        //获取类名首字母小写
-                        String className = clazz.getName().replaceAll(clazz.getPackage().getName() + ".", "");
-                        beanName = className.substring(0, 1).toLowerCase() + className.substring(1);
-                    }
-                    if (allBeansByName.containsKey(beanName)) {
-                        throw new DuplicateBeanNameException(beanName);
-                    }*/
                     //3、将这些类封装成BeanDefinition，装载到集合中
                     Boolean lazy = clazz.getAnnotation(Lazy.class) != null;
                     boolean singleton = true;
@@ -828,6 +828,10 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
     @Override
     public boolean containsBeanDefinition(String beanName) {
         return allBeansByName.containsKey(beanName);
+    }
+
+    public Map<Class<?>, List<Class<?>>> getAnnotationType2Clazz() {
+        return annotationType2Clazz;
     }
 
     public Map<String, Object> getIocByName() {
