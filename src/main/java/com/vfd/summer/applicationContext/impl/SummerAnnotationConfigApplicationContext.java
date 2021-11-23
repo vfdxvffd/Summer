@@ -864,6 +864,29 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
         return allBeansByName.containsKey(beanName);
     }
 
+    @Override
+    public BeanDefinition getBeanDefinition(String beanName) throws NoSuchBeanException {
+        if (allBeansByName.containsKey(beanName)) {
+            return allBeansByName.get(beanName);
+        } else {
+            throw new NoSuchBeanException();
+        }
+    }
+
+    @Override
+    public BeanDefinition getBeanDefinition(String beanName, Class<?> beanType) throws NoSuchBeanException {
+        BeanDefinition beanDefinition = getBeanDefinition(beanName);
+        if (beanType.isAssignableFrom(beanDefinition.getBeanClass())) {
+            return beanDefinition;
+        }
+        throw new NoSuchBeanException();
+    }
+
+    @Override
+    public BeanDefinition getBeanDefinition(Class<?> beanType) throws DuplicateBeanClassException, NoSuchBeanException {
+        return getBeanDefinition(getNameByType(beanType));
+    }
+
     public Map<Class<?>, List<Class<?>>> getAnnotationType2Clazz() {
         return annotationType2Clazz;
     }
