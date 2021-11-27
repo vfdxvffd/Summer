@@ -1,12 +1,14 @@
 package com.vfd.summer.aop.proxyFactory;
 
 import com.vfd.summer.aop.bean.JoinPoint;
+import com.vfd.summer.aop.bean.ProxyMethod;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @PackageName: com.vfd.summer.aop.proxyFactory
@@ -17,11 +19,7 @@ import java.util.List;
  */
 public interface ProxyFactory {
 
-    Object getProxyInstance(Method methodBeProxy,
-                            List<Method> before, List<Object> beforeAspect,
-                            List<Method> after, List<Object> afterAspect,
-                            List<Method> afterThrowing, List<Object> throwingAspect,
-                            List<Method> afterReturning, List<Object> returningAspect);
+    Object getProxyInstance(Map<Method, ProxyMethod> method2ProxyMethod);
 
     /**
      * 执行通知方法（即执行切面的方法）
@@ -51,6 +49,8 @@ public interface ProxyFactory {
                         args[i] = t;
                     } else if (parameters[i].getType().equals(Object.class)) {
                         args[i] = o;
+                    } else if (parameters[i].getType().equals(Method.class)) {
+                        args[i] = realMethod;
                     }
                 }
                 method1.invoke(object, args);

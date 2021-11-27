@@ -1,6 +1,8 @@
 package com.vfd.summer.applicationContext;
 
+import com.vfd.summer.exception.DuplicateBeanClassException;
 import com.vfd.summer.exception.NoSuchBeanException;
+import com.vfd.summer.ioc.bean.BeanDefinition;
 
 import java.util.Map;
 
@@ -79,4 +81,10 @@ public interface ApplicationContext {
      * @return
      */
     boolean containsBeanDefinition(String beanName);
+
+    BeanDefinition getBeanDefinition (String beanName) throws NoSuchBeanException;
+
+    BeanDefinition getBeanDefinition (String beanName, Class<?> beanType) throws NoSuchBeanException;
+
+    BeanDefinition getBeanDefinition (Class<?> beanType) throws DuplicateBeanClassException, NoSuchBeanException;
 }

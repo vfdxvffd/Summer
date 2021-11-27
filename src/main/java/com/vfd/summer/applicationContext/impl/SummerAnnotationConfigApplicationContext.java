@@ -2,6 +2,7 @@ package com.vfd.summer.applicationContext.impl;
 
 import com.vfd.summer.annotation.Bean;
 import com.vfd.summer.annotation.Configuration;
+import com.vfd.summer.aop.bean.ProxyMethod;
 import com.vfd.summer.aop.proxyFactory.impl.CGLibProxyFactory;
 import com.vfd.summer.aop.proxyFactory.impl.JDKProxyFactory;
 import com.vfd.summer.aop.annotation.*;
@@ -65,7 +66,11 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
     // property配置文件的位置
     private final String propertyFile;
 
+    // 记录了所有注解对应所有标注了这个注解的类
     private Map<Class<?>, List<Class<?>>> annotationType2Clazz = new HashMap<>();
+
+    // 标注了needBeProxyed中的注解的类需要被代理
+    private List<Class<?>> needBeProxyed = new ArrayList<>();
 
     // 记录关键位置的日志
     private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -212,10 +217,30 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
         // getNameByType方法会通过此类型找出所有此类型及此类型派生类的所有的bean的beanName
         String beanName = allBeansByType.get(clazz).getBeanName();
         // 确保这个类需要被代理但是还没有被代理
-        if (aspect.containsKey(clazz) && !earlyProxyObjects.containsKey(beanName)) {
+        if (isNeedBeProxy(clazz, beanName)) {
             return setProxy(obj);
         }
         return obj;
+    }
+
+    private boolean isNeedBeProxy (Class<?> clazz, String beanName) {
+        if (aspect.containsKey(clazz) && !earlyProxyObjects.containsKey(beanName)) {
+            return true;
+        }
+        for (Method method : clazz.getDeclaredMethods()) {
+            if (hasIntersection(method.getAnnotations())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean hasIntersection (Annotation[] annotations) {
+        Set<Class<?>> allElements = new HashSet<>(this.needBeProxyed);
+        for (Annotation annotation : annotations) {
+            allElements.add(annotation.annotationType());
+        }
+        return allElements.size() < (annotations.length + this.needBeProxyed.size());
     }
 
     /**
@@ -275,59 +300,68 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
     private Object setProxy(Object object) throws Exception {
         Class<?> clazz = object.getClass();
         Object proxy = object;
-        if (aspect.containsKey(clazz)) {         //判断这个注入的对象是否需要被代理，如果需要则代理
-            boolean whichProxy;
-            Set<Method> methods = aspect.get(clazz);
-            Map<Method, Set<Method>> aspectBefore = new HashMap<>();
-            Map<Method, Set<Method>> aspectAfter = new HashMap<>();
-            Map<Method, Set<Method>> aspectAfterThrowing = new HashMap<>();
-            Map<Method, Set<Method>> aspectAfterReturning = new HashMap<>();
-            for (Method method : methods) {
-                Before before = method.getAnnotation(Before.class);
-                After after = method.getAnnotation(After.class);
-                AfterThrowing afterThrowing = method.getAnnotation(AfterThrowing.class);
-                AfterReturning afterReturning = method.getAnnotation(AfterReturning.class);
-                if (before != null) addMethodsForAspect(before.value(), clazz, method, aspectBefore);
-                if (after != null)  addMethodsForAspect(after.value(), clazz, method, aspectAfter);
-                if (afterThrowing != null)  addMethodsForAspect(afterThrowing.value(), clazz, method, aspectAfterThrowing);
-                if (afterReturning != null) addMethodsForAspect(afterReturning.value(), clazz, method, aspectAfterReturning);
+        boolean whichProxy;
+        Set<Method> methods = aspect.getOrDefault(clazz, new HashSet<>());
+        Map<Method, Set<Method>> aspectBefore = new HashMap<>();
+        Map<Method, Set<Method>> aspectAfter = new HashMap<>();
+        Map<Method, Set<Method>> aspectAfterThrowing = new HashMap<>();
+        Map<Method, Set<Method>> aspectAfterReturning = new HashMap<>();
+        for (Method method : methods) {
+            Before before = method.getAnnotation(Before.class);
+            After after = method.getAnnotation(After.class);
+            AfterThrowing afterThrowing = method.getAnnotation(AfterThrowing.class);
+            AfterReturning afterReturning = method.getAnnotation(AfterReturning.class);
+            if (before != null) addMethodsForAspect(before.value(), clazz, method, aspectBefore);
+            if (after != null)  addMethodsForAspect(after.value(), clazz, method, aspectAfter);
+            if (afterThrowing != null)  addMethodsForAspect(afterThrowing.value(), clazz, method, aspectAfterThrowing);
+            if (afterReturning != null) addMethodsForAspect(afterReturning.value(), clazz, method, aspectAfterReturning);
+        }
+
+        Map<Method, ProxyMethod> method2ProxyMethod = new HashMap<>();
+
+        for (Method declaredMethod : clazz.getDeclaredMethods()) {
+            List<Method> beforeMethods = new LinkedList<>(aspectBefore.getOrDefault(declaredMethod, new HashSet<>()));
+            List<Object> beforeObject = getObjByAspect(beforeMethods);
+
+            List<Method> returningMethods = new LinkedList<>(aspectAfterReturning.getOrDefault(declaredMethod, new HashSet<>()));
+            List<Object> returningObject = getObjByAspect(returningMethods);
+
+            List<Method> throwingMethods = new LinkedList<>(aspectAfterThrowing.getOrDefault(declaredMethod, new HashSet<>()));
+            List<Object> throwingObject = getObjByAspect(throwingMethods);
+
+            List<Method> afterMethods = new LinkedList<>(aspectAfter.getOrDefault(declaredMethod, new HashSet<>()));
+            List<Object> afterObject = getObjByAspect(afterMethods);
+
+            for (Extension extension : extensions) {
+                extension.doOperationWhenProxy(this, declaredMethod, beforeMethods, beforeObject,
+                        afterMethods, afterObject, throwingMethods, throwingObject,
+                        returningMethods, returningObject);
             }
 
-            for (Method declaredMethod : clazz.getDeclaredMethods()) {
-
-                List<Method> beforeMethods = new LinkedList<>(aspectBefore.getOrDefault(declaredMethod, new HashSet<>()));
-                List<Object> beforeObject = getObjByAspect(beforeMethods);
-
-                List<Method> returningMethods = new LinkedList<>(aspectAfterReturning.getOrDefault(declaredMethod, new HashSet<>()));
-                List<Object> returningObject = getObjByAspect(returningMethods);
-
-                List<Method> throwingMethods = new LinkedList<>(aspectAfterThrowing.getOrDefault(declaredMethod, new HashSet<>()));
-                List<Object> throwingObject = getObjByAspect(throwingMethods);
-
-                List<Method> afterMethods = new LinkedList<>(aspectAfter.getOrDefault(declaredMethod, new HashSet<>()));
-                List<Object> afterObject = getObjByAspect(afterMethods);
-
-                if (beforeMethods.size() != 0 || returningMethods.size() != 0 ||
-                        throwingMethods.size() != 0 || afterMethods.size() != 0) {
-                    ProxyFactory proxyFactory;
-                    if (clazz.getInterfaces().length == 0) {     //若没有实现接口则采用cglib实现动态代理
-                        proxyFactory = new CGLibProxyFactory(object);
-                        whichProxy = true;
-                    } else {
-                        proxyFactory = new JDKProxyFactory(object);
-                        whichProxy = false;
-                    }
-                    proxy = proxyFactory.getProxyInstance(declaredMethod, beforeMethods, beforeObject,
-                            afterMethods, afterObject, throwingMethods, throwingObject,
-                            returningMethods, returningObject);
-                    // 检查此对象是否是单例，如果是则需要加入二级缓存中，后面继续对起进行注入工作
-                    final BeanDefinition beanDefinition = allBeansByType.get(clazz);
-                    if (beanDefinition.getSingleton()) {
-                        earlyProxyObjects.put(beanDefinition.getBeanName(), proxy);
-                    }
-                    logger.debug("class:[{}]代理对象设置完成，采用的代理方式为：{}",clazz,whichProxy ? "CGLib":"JDK");
-                }
+            if (beforeMethods.size() != 0 || returningMethods.size() != 0 || throwingMethods.size() != 0 || afterMethods.size() != 0) {
+                method2ProxyMethod.put(declaredMethod, new ProxyMethod(beforeMethods, beforeObject,
+                        returningMethods, returningObject, throwingMethods, throwingObject, afterMethods, afterObject));
             }
+        }
+
+        if (method2ProxyMethod.size() > 0) {
+            ProxyFactory proxyFactory;
+            if (clazz.getInterfaces().length == 0) {     //若没有实现接口则采用cglib实现动态代理
+                proxyFactory = new CGLibProxyFactory(object);
+                whichProxy = true;
+            } else {
+                proxyFactory = new JDKProxyFactory(object);
+                whichProxy = false;
+            }
+
+            proxy = proxyFactory.getProxyInstance(method2ProxyMethod);
+
+            // 检查此对象是否是单例，如果是则需要加入二级缓存中，后面继续对起进行注入工作
+            final BeanDefinition beanDefinition = allBeansByType.get(clazz);
+            if (beanDefinition.getSingleton()) {
+                earlyProxyObjects.put(beanDefinition.getBeanName(), proxy);
+            }
+            logger.debug("class:[{}]代理对象设置完成，采用的代理方式为：{}",clazz,whichProxy ? "CGLib":"JDK");
         }
         return proxy;
     }
@@ -830,8 +864,35 @@ public class SummerAnnotationConfigApplicationContext implements ApplicationCont
         return allBeansByName.containsKey(beanName);
     }
 
+    @Override
+    public BeanDefinition getBeanDefinition(String beanName) throws NoSuchBeanException {
+        if (allBeansByName.containsKey(beanName)) {
+            return allBeansByName.get(beanName);
+        } else {
+            throw new NoSuchBeanException();
+        }
+    }
+
+    @Override
+    public BeanDefinition getBeanDefinition(String beanName, Class<?> beanType) throws NoSuchBeanException {
+        BeanDefinition beanDefinition = getBeanDefinition(beanName);
+        if (beanType.isAssignableFrom(beanDefinition.getBeanClass())) {
+            return beanDefinition;
+        }
+        throw new NoSuchBeanException();
+    }
+
+    @Override
+    public BeanDefinition getBeanDefinition(Class<?> beanType) throws DuplicateBeanClassException, NoSuchBeanException {
+        return getBeanDefinition(getNameByType(beanType));
+    }
+
     public Map<Class<?>, List<Class<?>>> getAnnotationType2Clazz() {
         return annotationType2Clazz;
+    }
+
+    public List<Class<?>> getNeedBeProxyed() {
+        return needBeProxyed;
     }
 
     public Map<String, Object> getIocByName() {

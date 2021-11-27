@@ -1,5 +1,6 @@
 package com.vfd.summer.aop.proxyFactory.impl;
 
+import com.vfd.summer.aop.bean.ProxyMethod;
 import com.vfd.summer.aop.proxyFactory.ProxyFactory;
 import net.sf.cglib.proxy.Enhancer;
 import net.sf.cglib.proxy.MethodInterceptor;
@@ -7,6 +8,7 @@ import net.sf.cglib.proxy.MethodInterceptor;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @PackageName: com.vfd.summer.aop.proxyFactory.impl
@@ -26,33 +28,29 @@ public class CGLibProxyFactory implements ProxyFactory {
 
     @SuppressWarnings("all")
     @Override
-    public Object getProxyInstance(Method methodBeProxy,
-                                   List<Method> before, List<Object> beforeAspect,
-                                   List<Method> after, List<Object> afterAspect,
-                                   List<Method> afterThrowing, List<Object> throwingAspect,
-                                   List<Method> afterReturning, List<Object> returningAspect) {
-        Enhancer enhancer = new Enhancer();
-        enhancer.setSuperclass(realObj.getClass());
-        enhancer.setCallback((MethodInterceptor) (o, method, args, methodProxy) -> {
+    public Object getProxyInstance(Map<Method, ProxyMethod> method2ProxyMethod) {
+            Enhancer enhancer = new Enhancer();
+            enhancer.setSuperclass(realObj.getClass());
+            enhancer.setCallback((MethodInterceptor) (o, method, args, methodProxy) -> {
             Object result = null;
-            if (methodBeProxy.getName().equals(method.getName()) &&
-                    Arrays.equals(methodBeProxy.getParameterTypes(), method.getParameterTypes())) {
+            ProxyMethod proxyMethod = method2ProxyMethod.get(method);
+            if (proxyMethod != null) {
                 try {
-                    invokeMethods(beforeAspect, before, method, args, null, null);
+                    invokeMethods(proxyMethod.getBeforeObject(), proxyMethod.getBeforeMethods(), method, args, null, null);
                     result = methodProxy.invoke(realObj, args);
-                    invokeMethods(returningAspect, afterReturning, method, args, null, result);
+                    invokeMethods(proxyMethod.getReturningObject(), proxyMethod.getReturningMethods(), method, args, null, result);
                 } catch (Throwable throwable) {
-                    if (afterThrowing.size() == 0)
+                    if (proxyMethod.getThrowingMethods().size() == 0)
                         throw throwable;
                     else
-                        invokeMethods(throwingAspect, afterThrowing, method, args, throwable, null);
+                        invokeMethods(proxyMethod.getThrowingObject(), proxyMethod.getThrowingMethods(), method, args, throwable, null);
                 } finally {
-                    invokeMethods(afterAspect, after, method, args, null, null);
+                    invokeMethods(proxyMethod.getAfterObject(), proxyMethod.getAfterMethods(), method, args, null, null);
                 }
+                return result;
             } else {
-                result = methodProxy.invoke(realObj , args);
+                return methodProxy.invoke(realObj , args);
             }
-            return result;
         });
         return enhancer.create();
     }

@@ -1,5 +1,6 @@
 package com.vfd.summer.aop.proxyFactory.impl;
 
+import com.vfd.summer.aop.bean.ProxyMethod;
 import com.vfd.summer.aop.proxyFactory.ProxyFactory;
 
 import java.lang.reflect.Method;
@@ -28,29 +29,24 @@ public class JDKProxyFactory implements ProxyFactory {
      */
     @SuppressWarnings("all")
     @Override
-    public Object getProxyInstance(Method methodBeProxy,
-                                   List<Method> before, List<Object> beforeAspect,
-                                   List<Method> after, List<Object> afterAspect,
-                                   List<Method> afterThrowing, List<Object> throwingAspect,
-                                   List<Method> afterReturning, List<Object> returningAspect) {
+    public Object getProxyInstance(Map<Method, ProxyMethod> method2ProxyMethod) {
         return Proxy.newProxyInstance(realObj.getClass().getClassLoader(),
                 realObj.getClass().getInterfaces(),
                 (proxy, method, args) -> {
                     Object result = null;
-                    if (methodBeProxy.getName().equals(method.getName()) &&
-                            Arrays.equals(methodBeProxy.getParameterTypes(), method.getParameterTypes())) {
-                        // 需要保证当前的方法确实被某个切面类的切面方法横切了
+                    ProxyMethod proxyMethod = method2ProxyMethod.get(method);
+                    if (proxyMethod != null) {
                         try {
-                            invokeMethods(beforeAspect, before, method, args, null, null);
+                            invokeMethods(proxyMethod.getBeforeObject(), proxyMethod.getBeforeMethods(), method, args, null, null);
                             result = method.invoke(realObj, args);
-                            invokeMethods(returningAspect, afterReturning, method, args, null, result);
+                            invokeMethods(proxyMethod.getReturningObject(), proxyMethod.getReturningMethods(), method, args, null, result);
                         } catch (Throwable throwable) {
-                            if (afterThrowing.size() == 0)
+                            if (proxyMethod.getThrowingMethods().size() == 0)
                                 throw throwable;
                             else
-                                invokeMethods(throwingAspect, afterThrowing, method, args, throwable, null);
+                                invokeMethods(proxyMethod.getThrowingObject(), proxyMethod.getThrowingMethods(), method, args, throwable, null);
                         } finally {
-                            invokeMethods(afterAspect, after, method, args, null, null);
+                            invokeMethods(proxyMethod.getAfterObject(), proxyMethod.getAfterMethods(), method, args, null, null);
                         }
                     } else {
                         result = method.invoke(realObj, args);
