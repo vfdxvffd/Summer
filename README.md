@@ -1,6 +1,6 @@
 # Summer
 
-[![](https://img.shields.io/badge/Release-v1.1-important)](https://github.com/vfdxvffd/Summer/releases/v1.1) &nbsp;&nbsp;&nbsp;[![](https://img.shields.io/badge/%E4%BD%BF%E7%94%A8%E6%96%87%E6%A1%A3-Summer-informational)](Summer使用文档.md) &nbsp;&nbsp;&nbsp;[![](https://img.shields.io/badge/%E6%9B%B4%E6%96%B0%E6%97%A5%E5%BF%97-log-red)](Summer更新日志.md)&nbsp;&nbsp;&nbsp;[![](https://img.shields.io/badge/%E5%A6%82%E4%BD%95%E9%80%82%E9%85%8D-adapter-ff69b4)](如何适配Summer.md)
+[![](https://img.shields.io/badge/Release-v1.2-important)](https://github.com/vfdxvffd/Summer/releases/v1.2) &nbsp;&nbsp;&nbsp;[![](https://img.shields.io/badge/%E4%BD%BF%E7%94%A8%E6%96%87%E6%A1%A3-Summer-informational)](Summer使用文档.md) &nbsp;&nbsp;&nbsp;[![](https://img.shields.io/badge/%E6%9B%B4%E6%96%B0%E6%97%A5%E5%BF%97-log-red)](Summer更新日志.md)&nbsp;&nbsp;&nbsp;[![](https://img.shields.io/badge/%E5%A6%82%E4%BD%95%E9%80%82%E9%85%8D-adapter-ff69b4)](如何适配Summer.md)
 
 ​		参考`Spring`框架实现一个简易类似的`Java`框架。计划陆续实现`IOC`、`AOP`、以及`数据访问模块和事务控制模块`。项目持续维护中...欢迎Star！Thanks~~~
 
@@ -9,7 +9,7 @@
 - [x] IOC容器
 - [x] AOP切面
 - [x] 对外的扩展接口
-- [ ] 数据访问集成模块（JDBC、事务控制）
+- [x] 数据访问集成模块（JDBC、事务控制）
 
 ​		关于对IOC和AOP功能`为什么要使用（why）`，以及`应该如何使用（how）`请移步[使用文档](Summer使用文档.md)，要了解每个版本更新的内容请移步[更新日志](Summer更新日志.md)。
 
@@ -21,9 +21,10 @@ JDK 8
 
 ## 适配的其他框架
 
-| 框架        | 框架概述                                                     | 项目仓库链接                                                 |
-| ----------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| summer-vrpc | 一款基于netty的用于Java的rpc框架，适配到`summer`框架的适配版本，利用注解可以更快的开发。 | [https://github.com/vfdxvffd/summer-vrpc](https://github.com/vfdxvffd/summer-vrpc) |
+| 框架               | 框架概述                                                     | 项目仓库链接                                                 |
+| ------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| summer-data-access | 一款基于jdbc的数据访问框架，旨在可以通过注解快速的解决数据库访问的问题，采用`druid`数据源做连接池可以支持配置化的修改连接池相关配置。做了`mysql`相关的处理以及事务的相关处理，可以使用注解更加方便的配置事务，后面会根据需要慢慢加入更多的数据库。 | [https://github.com/vfdxvffd/summer-data-access](https://github.com/vfdxvffd/summer-data-access) |
+| summer-vrpc        | 一款基于netty的用于Java的rpc框架，适配到`summer`框架的适配版本，利用注解可以更快的开发。 | [https://github.com/vfdxvffd/summer-vrpc](https://github.com/vfdxvffd/summer-vrpc) |
 
 ## 如何使用
 
